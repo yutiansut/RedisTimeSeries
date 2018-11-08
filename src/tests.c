@@ -6,6 +6,7 @@
 #include "parse_policies.h"
 #include "minunit.h"
 #include "compaction.h"
+#include "buffer.h"
 #include "rmutil/alloc.h"
 
 MU_TEST(test_valid_policy) {
@@ -46,6 +47,40 @@ MU_TEST(test_invalid_policy) {
     free(parsedRules);
 }
 
+MU_TEST(test_buffer) {
+    int data1 = 13;
+    int data2 = 35; // 6 bits
+    int result = 0;
+    BitBuffer *buff = BitBuffer_new(1024);
+    BitBuffer *reader = BitBuffer_newWithData(1024, buff->data);
+    for (int i = 0; i < 20; i++)
+    {
+        BitBuffer_write (buff, data1 << 4, 4);
+        BitBuffer_write (buff, data2 << 2, 6);
+    }
+    
+    for (int i = 0; i < 20; i++)
+    {
+        result = BitBuffer_read(reader, 4);
+        mu_check(result == data1);
+
+        result = BitBuffer_read(reader, 6);
+        mu_check(result == data2);
+    }
+    BitBuffer_free(buff);
+}
+
+MU_TEST(test_buffer2) {
+    int data = 35; // 6 bits
+    int result = 0;
+    BitBuffer *buff = BitBuffer_new(1024);
+    BitBuffer *reader = BitBuffer_newWithData(1024, buff->data);
+    BitBuffer_write (buff, data << 2, 6);
+    result = BitBuffer_read(reader, 6);
+    mu_check(result == data);
+    BitBuffer_free(buff);
+}
+
 MU_TEST(test_StringLenAggTypeToEnum) {
     mu_check(StringAggTypeToEnum("min") == TS_AGG_MIN);
     mu_check(StringAggTypeToEnum("max") == TS_AGG_MAX);
@@ -60,7 +95,9 @@ MU_TEST(test_StringLenAggTypeToEnum) {
 MU_TEST_SUITE(test_suite) {
 	MU_RUN_TEST(test_valid_policy);
 	MU_RUN_TEST(test_invalid_policy);
-	MU_RUN_TEST(test_StringLenAggTypeToEnum);
+    MU_RUN_TEST(test_StringLenAggTypeToEnum);
+	MU_RUN_TEST(test_buffer);
+    MU_RUN_TEST(test_buffer2);
 }
 
 int main(int argc, char *argv[]) {
