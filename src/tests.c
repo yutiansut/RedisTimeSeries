@@ -1,3 +1,8 @@
+/*
+* Copyright 2018-2019 Redis Labs Ltd. and Contributors
+*
+* This file is available under the Redis Labs Source Available License Agreement
+*/
 #include "parse_policies.h"
 #include "minunit.h"
 #include "compaction.h"
@@ -81,6 +86,7 @@ MU_TEST(test_StringLenAggTypeToEnum) {
     mu_check(StringAggTypeToEnum("count") == TS_AGG_COUNT);
     mu_check(StringAggTypeToEnum("first") == TS_AGG_FIRST);
     mu_check(StringAggTypeToEnum("last") == TS_AGG_LAST);
+    mu_check(StringAggTypeToEnum("range") == TS_AGG_RANGE);
 }
 
 MU_TEST_SUITE(test_suite) {

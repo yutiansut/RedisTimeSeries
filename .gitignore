@@ -2,3 +2,11 @@
 *.so
 .vscode/
 __pycache__
+.cproject
+.project
+.pydevproject
+.settings/
+venv/
+.idea/
+.DS_Store
+ tests/.cache/
