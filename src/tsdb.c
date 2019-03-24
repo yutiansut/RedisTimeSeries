@@ -145,6 +145,7 @@ void FreeCompactionRule(void *value) {
 
 size_t SeriesMemUsage(const void *value) {
     Series *series = (Series *)value;
+    // TODO: iterate over chunks and use Chunk_MemorySize
     return sizeof(series) + sizeof(Chunk) * RedisModule_DictSize(series->chunks);
 }
 
