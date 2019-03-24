@@ -18,6 +18,14 @@ else
 	SHOBJ_CFLAGS ?= -dynamic -fno-common -g -ggdb
 	SHOBJ_LDFLAGS ?= -bundle -undefined dynamic_lookup
 endif
+
+CHUNK_TYPE ?= simple
+ifeq ($(CHUNK_TYPE),simple)
+	CHUNK = chunk
+endif
+ifeq ($(CHUNK_TYPE),bitbuffer)
+	CHUNK = bitbuffer_chunk
+endif
 CFLAGS = -I$(RM_INCLUDE_DIR) -Wall -O3 -g -fPIC -lc -lm -std=gnu99  -DREDIS_MODULE_TARGET -DREDISMODULE_EXPERIMENTAL_API
 
 all: rmutil redistimeseries.so
@@ -25,8 +33,8 @@ all: rmutil redistimeseries.so
 rmutil:
 	$(MAKE) -C $(RMUTIL_LIBDIR)
 
-redistimeseries.so: rmutil module.o tsdb.o compaction.o rdb.o chunk.o parse_policies.o config.o indexer.o endianconv.o buffer.o
-	$(LD) -o $@ module.o tsdb.o rdb.o compaction.o chunk.o parse_policies.o config.o indexer.o buffer.o $(SHOBJ_LDFLAGS) $(LIBS) -L$(RMUTIL_LIBDIR) -lrmutil -lc
+redistimeseries.so: rmutil module.o tsdb.o compaction.o rdb.o $(CHUNK).o parse_policies.o config.o indexer.o endianconv.o buffer.o
+	$(LD) -o $@ module.o tsdb.o rdb.o compaction.o $(CHUNK).o parse_policies.o config.o indexer.o buffer.o $(SHOBJ_LDFLAGS) $(LIBS) -L$(RMUTIL_LIBDIR) -lrmutil -lc
 
 clean:
 	rm -rf *.xo *.so *.o ./tests_runner

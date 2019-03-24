@@ -31,8 +31,12 @@ int ChunkNumOfSample(Chunk *chunk) {
     return chunk->num_samples;
 }
 
-Sample *ChunkGetBitBuffer(Chunk *chunk) {
+Sample *ChunkGetSampleArray(Chunk *chunk) {
     return (Sample *)chunk->samples;
+}
+
+Sample *ChunkGetSample(Chunk *chunk, int index) {
+    return &ChunkGetSampleArray(chunk)[index];
 }
 
 timestamp_t ChunkGetLastTimestamp(Chunk *chunk) {

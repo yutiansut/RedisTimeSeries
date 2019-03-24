@@ -23,10 +23,29 @@ void BitBuffer_free(BitBuffer *buffer) {
     free(buffer);
 }
 
-void
-BitBuffer_write (struct BitBuffer *buffer, char bits, int length)
+int BitBuffer_hasSpaceFor(struct BitBuffer *buffer, int bits_len) {
+    if ((buffer->size - buffer->byte_index) * CHAR_BIT < bits_len) {
+        return BITBUFFER_ERROR;
+    } else {
+        return BITBUFFER_OK;
+    }
+}
+
+int BitBuffer_SeekBack(struct BitBuffer *buffer, int bits_len) {
+    bits_len -= buffer->bit_index;
+    buffer->bit_index = 0;
+    buffer->byte_index -= bits_len / CHAR_BIT;
+    buffer->bit_index -= bits_len % CHAR_BIT;
+    return BITBUFFER_OK;
+}
+
+int BitBuffer_write (struct BitBuffer *buffer, char bits, int length)
 {
   int i, shift_pos, current_bit;
+
+  if ((buffer->size - buffer->byte_index) * CHAR_BIT < length) {
+      return BITBUFFER_OUT_OF_SPACE;
+  }
 
   for (i = 0; i < length; i++)
     {
@@ -45,6 +64,7 @@ BitBuffer_write (struct BitBuffer *buffer, char bits, int length)
         
         (buffer->bit_index)++;
     }
+  return BITBUFFER_OK;
 }
 
 void

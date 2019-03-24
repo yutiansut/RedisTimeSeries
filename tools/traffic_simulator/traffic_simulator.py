@@ -16,7 +16,7 @@ def worker_func(args):
         if expected != res:
             return -1
     else:
-        pipe = redis_client.pipeline(tsrange)
+        pipe = redis_client.pipeline(transaction=False)
         for i in xrange(tsrange):
             if tsrange % pipeline_size:
                 pipe.execute()

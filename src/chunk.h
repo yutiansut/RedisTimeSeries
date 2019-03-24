@@ -31,6 +31,7 @@ typedef struct ChunkIterator
     int currentIndex;
     timestamp_t lastTimestamp;
     int lastValue;
+    void *data;
 } ChunkIterator;
 
 Chunk * NewChunk(size_t sampleCount);
@@ -42,6 +43,7 @@ int IsChunkFull(Chunk *chunk);
 int ChunkNumOfSample(Chunk *chunk);
 timestamp_t ChunkGetLastTimestamp(Chunk *chunk);
 timestamp_t ChunkGetFirstTimestamp(Chunk *chunk);
+size_t Chunk_MemorySize(Chunk *chunk);
 
 ChunkIterator NewChunkIterator(Chunk *chunk);
 int ChunkIteratorGetNext(ChunkIterator *iter, Sample* sample);
