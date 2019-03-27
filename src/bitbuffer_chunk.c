@@ -69,6 +69,7 @@ Chunk * NewChunk(size_t sampleCount)
 {
     Chunk *newChunk = (Chunk *)malloc(sizeof(Chunk));
     newChunk->num_samples = 0;
+    newChunk->base_timestamp = 0;
     newChunk->max_samples = sampleCount;
     newChunk->nextChunk = NULL;
     newChunk->samples = malloc(sizeof(CompressedChunkData));
@@ -111,39 +112,57 @@ int ChunkAddSample(Chunk *chunk, Sample sample) {
         return 0;
     }
 
-    if (ChunkNumOfSample(chunk) == 0) {
+    CompressedChunkData *compressedChunkData = ChunkGetCompressedChunkData(chunk);
+    BitBuffer *buff = compressedChunkData->buffer;
+
+    if (chunk->num_samples == 0) {
         // initialize base_timestamp
         chunk->base_timestamp = sample.timestamp;
     }
 
+    // Handle last sample override
+    if (compressedChunkData->last_timestamp == sample.timestamp) {
+        BitBuffer_SeekBack(buff, compressedChunkData->last_write_size_bits);
+        timestamp_t prev_timestamp = compressedChunkData->last_timestamp - compressedChunkData->last_time_delta;
+        compressedChunkData->last_timestamp = prev_timestamp;
+    }
+
     timestamp_t timestamp;
+    int delta = sample.timestamp - compressedChunkData->last_timestamp;
+    int double_delta = delta - compressedChunkData->last_time_delta;
     if (chunk->num_samples == 0) {
-        timestamp = 0;
+        timestamp = sample.timestamp;
+    } else if (chunk->num_samples == 1) {
+        timestamp = delta;
+        compressedChunkData->last_time_delta = delta;
     } else {
-        timestamp = sample.timestamp - chunk->base_timestamp;
+        timestamp = double_delta;
+        compressedChunkData->last_time_delta = delta;
     }
 
     varintBuf varint;
     size_t pos = varintEncode(timestamp, varint);
-    CompressedChunkData *compressedChunkData = ChunkGetCompressedChunkData(chunk);
-    BitBuffer *buff = compressedChunkData->buffer;
 
-    if (compressedChunkData->last_timestamp == sample.timestamp) {
-        BitBuffer_SeekBack(buff, compressedChunkData->last_write_size_bits);
+    int timestamp_size;
+    if (timestamp == 0) {
+        timestamp_size = 1;
+    } else {
+        timestamp_size = VARINT_LEN(pos) * CHAR_BIT + 1;
     }
-
-    int timestamp_size = VARINT_LEN(pos) * CHAR_BIT;;
     int data_size = sizeof(double) * CHAR_BIT;
     int total_size = timestamp_size + data_size;
 
     if (BitBuffer_hasSpaceFor(buff, total_size) != BITBUFFER_OK) {
-//        int back_seek = timestamp_size * CHAR_BIT;
-//        BitBuffer_SeekBack(buff, back_seek);
         return 0;
     }
 
-    if (WriteVarintBuffer(varint, pos, buff) == 0) {
-        return 0;
+    if (timestamp == 0) {
+        BitBuffer_write(buff, 0x0, 1);
+    } else {
+        BitBuffer_write(buff, 0xFF, 1);
+        if (WriteVarintBuffer(varint, pos, buff) == 0) {
+            return 0;
+        }
     }
 
     char *data = &sample.data;
@@ -161,14 +180,37 @@ int ChunkAddSample(Chunk *chunk, Sample sample) {
 ChunkIterator NewChunkIterator(Chunk* chunk) {
     BitBuffer *writeOnly = ChunkGetCompressedChunkData(chunk)->buffer;
     BitBuffer *buffer = BitBuffer_newWithData(writeOnly->size, writeOnly->data);
-    return (ChunkIterator){.chunk = chunk, .currentIndex = 0, .data = buffer};
+    // TODO: free
+    CompressedChunkData *data = malloc(sizeof(CompressedChunkData));
+    data->buffer = buffer;
+    data->last_data = 0;
+    data->last_time_delta = 0;
+    data->last_timestamp = 0;
+    return (ChunkIterator){.chunk = chunk, .currentIndex = 0, .data = data};
 }
 
 int ChunkIteratorGetNext(ChunkIterator *iter, Sample* sample) {
+    CompressedChunkData *compressedChunkData = iter->data;
+    BitBuffer *buffer = compressedChunkData->buffer;
+    int read_buffer = 0;
+    uint64_t timestamp = 0;
     if (iter->currentIndex < iter->chunk->num_samples) {
-        iter->currentIndex++;
-        BitBuffer *buffer = iter->data;
-        uint64_t timestamp = ReadVarint(buffer) + + iter->chunk->base_timestamp;
+        read_buffer = BitBuffer_read(buffer, 1);
+        if (read_buffer == 0) {
+            timestamp = compressedChunkData->last_timestamp + compressedChunkData->last_time_delta;
+        } else {
+            uint64_t varint = ReadVarint(buffer);
+            if (iter->currentIndex == 0) {
+                timestamp = varint;
+            } else if (iter->currentIndex == 1) {
+                timestamp = compressedChunkData->last_timestamp + varint;
+                compressedChunkData->last_time_delta = varint;
+            } else {
+                compressedChunkData->last_time_delta = compressedChunkData->last_time_delta + varint;
+                timestamp = compressedChunkData->last_timestamp + compressedChunkData->last_time_delta;
+            }
+            compressedChunkData->last_time_delta = varint;
+        }
         double data = 0;
         char *byte = &data;
         for (int i=0; i < sizeof(double) / sizeof(char) ; i ++) {
@@ -176,8 +218,10 @@ int ChunkIteratorGetNext(ChunkIterator *iter, Sample* sample) {
             memcpy(byte, &res, sizeof(char));
             byte++;
         }
-        sample->timestamp = timestamp ;
+        compressedChunkData->last_timestamp = timestamp;
+        sample->timestamp = timestamp;
         sample->data = (double)data;
+        iter->currentIndex++;
         return 1;
     } else {
         return 0;
