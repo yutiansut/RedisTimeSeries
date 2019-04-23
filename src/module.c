@@ -17,6 +17,7 @@
 #include "config.h"
 #include "module.h"
 #include "indexer.h"
+#include "version.h"
 
 RedisModuleType *SeriesType;
 static time_t timer;
@@ -667,7 +668,7 @@ int TSDB_incrby(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
         }
 
         CreateTsKey(ctx, keyName, labels, labelsCount, retentionSecs, maxSamplesPerChunk, &series, &key);
-        SeriesCreateRulesFromGlobalConfig(ctx, keyName, series, NULL, 0);
+        SeriesCreateRulesFromGlobalConfig(ctx, keyName, series, labels, labelsCount);
     }
 
     series = RedisModule_ModuleTypeGetValue(key);
@@ -752,7 +753,7 @@ example:
 redis-server --loadmodule ./redistimeseries.so COMPACTION_POLICY "max:1m:1d;min:10s:1h;avg:2h:10d;avg:3d:100d" RETENTION_POLICY 3600 MAX_SAMPLE_PER_CHUNK 1024
 */
 int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
-    if (RedisModule_Init(ctx, "timeseries", 100, REDISMODULE_APIVER_1) == REDISMODULE_ERR) {
+    if (RedisModule_Init(ctx, "timeseries", REDISTIMESERIES_MODULE_VERSION, REDISMODULE_APIVER_1) == REDISMODULE_ERR) {
         return REDISMODULE_ERR;
     }
 
