@@ -6,6 +6,8 @@ import __builtin__
 import math
 from rmtest import ModuleTestCase
 
+CHUNK_SIZE = 5760L
+
 class RedisTimeseriesTests(ModuleTestCase(os.path.dirname(os.path.abspath(__file__)) + '/../redistimeseries.so')):
     def _get_ts_info(self, redis, key):
         info = redis.execute_command('TS.INFO', key)
@@ -58,6 +60,11 @@ class RedisTimeseriesTests(ModuleTestCase(os.path.dirname(os.path.abspath(__file
             cmd.extend(['LABELS'])
             cmd.extend(new_labels)
         r.execute_command(*cmd)
+
+    def _assert_ts_info(self, expected, actual):
+        expected.pop("chunkCount")
+        actual.pop("chunkCount")
+        assert expected == actual
 
     @staticmethod
     def _insert_data(redis, key, start_ts, samples_count, value):
@@ -138,7 +145,7 @@ class RedisTimeseriesTests(ModuleTestCase(os.path.dirname(os.path.abspath(__file
         start_ts = 1511885909L
         samples_count = 1500
         with self.redis() as r:
-            assert r.execute_command('TS.CREATE', 'tester', 'RETENTION', '0', 'CHUNK_SIZE', '5760', 'LABELS', 'name',
+            assert r.execute_command('TS.CREATE', 'tester', 'RETENTION', '0', 'CHUNK_SIZE', CHUNK_SIZE, 'LABELS', 'name',
                                      'brown', 'color', 'pink')
             self._insert_data(r, 'tester', start_ts, samples_count, 5)
 
@@ -149,12 +156,12 @@ class RedisTimeseriesTests(ModuleTestCase(os.path.dirname(os.path.abspath(__file
             expected_result = {'chunkCount': math.ceil((samples_count + 1) / 360.0),
               'labels': [['name', 'brown'], ['color', 'pink']],
               'lastTimestamp': start_ts + samples_count - 1,
-              'maxSamplesPerChunk': 360L,
+              'maxSamplesPerChunk': CHUNK_SIZE,
               'retentionTime': 0L,
               'sourceKey': None,
               'rules': []}
             actual_result = self._get_ts_info(r, 'tester')
-            assert expected_result == actual_result
+            self._assert_ts_info(expected_result, actual_result)
 
 
     def test_rdb(self):
@@ -162,7 +169,7 @@ class RedisTimeseriesTests(ModuleTestCase(os.path.dirname(os.path.abspath(__file
         samples_count = 1500
         data = None
         with self.redis() as r:
-            assert r.execute_command('TS.CREATE', 'tester', 'RETENTION', '0', 'CHUNK_SIZE', '360', 'LABELS', 'name', 'brown', 'color', 'pink')
+            assert r.execute_command('TS.CREATE', 'tester', 'RETENTION', '0', 'CHUNK_SIZE', CHUNK_SIZE, 'LABELS', 'name', 'brown', 'color', 'pink')
             assert r.execute_command('TS.CREATE', 'tester_agg_avg_10')
             assert r.execute_command('TS.CREATE', 'tester_agg_max_10')
             assert r.execute_command('TS.CREATERULE', 'tester', 'tester_agg_avg_10', 'AGGREGATION', 'AVG', 10)
@@ -179,12 +186,12 @@ class RedisTimeseriesTests(ModuleTestCase(os.path.dirname(os.path.abspath(__file
             expected_result = {'chunkCount': math.ceil((samples_count + 1) / 360.0),
                                'labels': [['name', 'brown'], ['color', 'pink']],
                                'lastTimestamp': 1511887408L,
-                               'maxSamplesPerChunk': 360L,
+                               'maxSamplesPerChunk': CHUNK_SIZE,
                                'retentionTime': 0L,
                                'sourceKey': None,
                                'rules': [['tester_agg_avg_10', 10L, 'AVG'], ['tester_agg_max_10', 10L, 'MAX']]}
             actual_result = self._get_ts_info(r, 'tester')
-            assert expected_result == actual_result
+            self._assert_ts_info(expected_result, actual_result)
 
     def test_rdb_aggregation_context(self):
         """
@@ -325,7 +332,7 @@ class RedisTimeseriesTests(ModuleTestCase(os.path.dirname(os.path.abspath(__file
 
     def test_compaction_rules(self):
         with self.redis() as r:
-            assert r.execute_command('TS.CREATE', 'tester', 'CHUNK_SIZE', '360')
+            assert r.execute_command('TS.CREATE', 'tester', 'CHUNK_SIZE', CHUNK_SIZE)
             assert r.execute_command('TS.CREATE', 'tester_agg_max_10')
             assert r.execute_command('TS.CREATERULE', 'tester', 'tester_agg_max_10', 'AGGREGATION', 'avg', 10)
 
@@ -337,15 +344,15 @@ class RedisTimeseriesTests(ModuleTestCase(os.path.dirname(os.path.abspath(__file
 
             assert len(actual_result) == samples_count/10
 
-            info_dict = self._get_ts_info(r, 'tester')
-            assert info_dict == {'chunkCount': math.ceil((samples_count + 1) / 360.0),
-                                 'lastTimestamp': start_ts + samples_count -1,
-                                 'maxSamplesPerChunk': 360L,
-                                 'retentionTime': 0L,
-                                 'labels': [],
-                                 'sourceKey': None,
-                                 'rules': [['tester_agg_max_10', 10L, 'AVG']]}          
-            
+            actual_result = self._get_ts_info(r, 'tester')
+            expected_result = {'chunkCount': math.ceil((samples_count + 1) / 360.0),
+                               'lastTimestamp': start_ts + samples_count -1,
+                               'maxSamplesPerChunk': CHUNK_SIZE,
+                               'retentionSecs': 0L,
+                               'labels': [],
+                               'rules': [['tester_agg_max_10', 10L, 'AVG']]}
+            self._assert_ts_info(expected_result, actual_result)
+
     def test_delete_key(self):
         with self.redis() as r:
             assert r.execute_command('TS.CREATE', 'tester', 'CHUNK_SIZE', '360')
