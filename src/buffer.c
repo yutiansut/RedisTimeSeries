@@ -3,6 +3,14 @@
 #include <stdlib.h>
 
 
+#define BITBUFFER_TRACE(buffer,msg,args...) BITBUFFER_TRACE_LEVEL(buffer,msg,1,args)
+
+#define BITBUFFER_TRACE_LEVEL(buffer,msg,level, args...)     if (buffer->trace >= level) {\
+    printf("Buffer(%s): ", __func__);\
+    printf(msg, args);\
+    printf("\n> bit_index=%d, byte_index=%d\n", buffer->bit_index, buffer->byte_index);\
+    }
+
 BitBuffer * BitBuffer_new(size_t size) {
     return BitBuffer_newWithData(size, malloc(size));
 }
@@ -15,11 +23,12 @@ BitBuffer * BitBuffer_newWithData(size_t size, char *data) {
     return buffer;
 }
 
-BitBuffer * BitBuffer_init(BitBuffer *buffer, size_t size, char *data) {
+void BitBuffer_init(BitBuffer *buffer, size_t size, char *data) {
     buffer->bit_index = 0;
     buffer->byte_index = 0;
     buffer->size = size;
     buffer->data = data;
+    buffer->trace = 0;
 }
 
 
@@ -37,16 +46,18 @@ int BitBuffer_hasSpaceFor(struct BitBuffer *buffer, int bits_len) {
 }
 
 int BitBuffer_SeekBack(struct BitBuffer *buffer, int bits_len) {
-    bits_len -= buffer->bit_index;
-    buffer->bit_index = 0;
-    buffer->byte_index -= bits_len / CHAR_BIT;
+//    bits_len -= buffer->bit_index;
+//    buffer->bit_index = 0;
     buffer->bit_index -= bits_len % CHAR_BIT;
+    buffer->byte_index -= bits_len / CHAR_BIT;
     return BITBUFFER_OK;
 }
 
 int BitBuffer_writeBit (struct BitBuffer *buffer, char bit)
 {
-    printf("Buffer: write 1 bit\n");
+    // TODO: check for space
+    BITBUFFER_TRACE(buffer, "write 1 bit: %d", bit)
+
     if (buffer->bit_index == CHAR_BIT) {
         buffer->byte_index++;
         buffer->bit_index = 0;
@@ -54,16 +65,19 @@ int BitBuffer_writeBit (struct BitBuffer *buffer, char bit)
 
     if (bit) {
         buffer->data[buffer->byte_index] |= 1 << (CHAR_BIT - buffer->bit_index - 1);
+    } else {
+        buffer->data[buffer->byte_index] &= ~(1 << (CHAR_BIT - buffer->bit_index - 1));
     }
 
     buffer->bit_index++;
+    return BITBUFFER_OK;
 }
 
 
 int BitBuffer_write (struct BitBuffer *buffer, char bits, int length)
 {
-  printf("Buffer: write length: %d\n", length);
-  int i, shift_pos, current_bit;
+    BITBUFFER_TRACE(buffer, "write length: %d; value:0x%x", length, bits)
+  unsigned int i, shift_pos, current_bit;
 
   if ((buffer->size - buffer->byte_index) * CHAR_BIT < length) {
       return BITBUFFER_OUT_OF_SPACE;
@@ -78,6 +92,8 @@ int BitBuffer_write (struct BitBuffer *buffer, char bits, int length)
 
         shift_pos = CHAR_BIT - buffer->bit_index - 1;
         current_bit = (bits >> (CHAR_BIT - i - 1)) & 0x1;
+        BITBUFFER_TRACE_LEVEL(buffer, "current_bit %d", 2, current_bit)
+
         if (current_bit) {
             buffer->data[buffer->byte_index] |= (1 << shift_pos);
         } else {
@@ -89,30 +105,56 @@ int BitBuffer_write (struct BitBuffer *buffer, char bits, int length)
   return BITBUFFER_OK;
 }
 
-void BitBuffer_write_bits (struct BitBuffer *buffer, u_int64_t bits, int length)
+
+void BitBuffer_write_bits_le (struct BitBuffer *buffer, u_int64_t bits, int length)
 {
-    char *data_ptr = &bits;
+    BITBUFFER_TRACE(buffer, "bits: 0x%llx; length:%d", bits, length)
+    u_int8_t *data_ptr = (u_int8_t *)&bits;
+    int left = length;
+    int bytes = length / CHAR_BIT;
+    data_ptr += bytes - 1;
+    int extra_bits = length % CHAR_BIT;
+
+    if (extra_bits) {
+        BitBuffer_write(buffer, *data_ptr, extra_bits);
+        data_ptr--;
+        left -= extra_bits;
+    }
+
+    while (left > 0) {
+        BitBuffer_write(buffer, *data_ptr, CHAR_BIT);
+        left -= CHAR_BIT;
+        data_ptr--;
+    }
+}
+
+void BitBuffer_write_bits_be (struct BitBuffer *buffer, u_int64_t bits, int length)
+{
+    BITBUFFER_TRACE(buffer, "bits: 0x%llx; length:%d", bits, length)
+    u_int8_t *data_ptr = (u_int8_t *)&bits;
     int left = length;
     while (left > 0) {
-        int write_bits = 0;
+        BITBUFFER_TRACE_LEVEL(buffer,"left %d, data: %llx", 2, left, bits)
+        unsigned int write_bits = 0;
         if (left >= CHAR_BIT) {
+            BitBuffer_write(buffer, *data_ptr, CHAR_BIT);
             write_bits = CHAR_BIT;
         } else {
             write_bits = left % CHAR_BIT;
+            BitBuffer_write(buffer, *data_ptr, write_bits);
         }
-        BitBuffer_write(buffer, *data_ptr, write_bits);
         left -= write_bits;
         data_ptr++;
     }
 }
 
 
-int 
+u_int64_t
 BitBuffer_read (struct BitBuffer *buffer, int size)
 {
-    printf("Buffer: read length: %d\n", size);
-  int i, shift_pos;
-  int bin = 0;
+    BITBUFFER_TRACE(buffer, "read length: %d;", size)
+  unsigned int i, shift_pos;
+  u_int64_t bin = 0;
   unsigned char current_bit;
 
   for (i = 0; i < size; i++)
@@ -126,9 +168,12 @@ BitBuffer_read (struct BitBuffer *buffer, int size)
       shift_pos = CHAR_BIT - buffer->bit_index - 1;
       bin <<= 1;
       current_bit = (buffer->data[buffer->byte_index] >> shift_pos ) & 0x1;
+        BITBUFFER_TRACE_LEVEL(buffer, "current_bit %d", 2, current_bit)
       bin |= current_bit;
       (buffer->bit_index)++;
     }
 
-  return bin;
+    BITBUFFER_TRACE(buffer, "value: 0x%llx", bin)
+
+    return bin;
 }

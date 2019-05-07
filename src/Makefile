@@ -31,7 +31,7 @@ endif
 ifeq ($(CHUNK_TYPE),bitbuffer)
 	CHUNK = bitbuffer_chunk
 endif
-CFLAGS = -I$(RM_INCLUDE_DIR) -Wall -O3 -g -fPIC -lc -lm -std=gnu99  -DREDIS_MODULE_TARGET -DREDISMODULE_EXPERIMENTAL_API
+CFLAGS = -I$(RM_INCLUDE_DIR) -Wall -O3 -g -ggdb -fPIC -lc -lm -std=gnu99  -DREDIS_MODULE_TARGET -DREDISMODULE_EXPERIMENTAL_API
 
 all: rmutil redistimeseries.so
 
@@ -67,6 +67,12 @@ valgrind: redistimeseries.so
 
 unittests_runner: redistimeseries.so tests.o
 	$(CC) *.o -o unittests_runner $(LIBS) -L$(RMUTIL_LIBDIR) -lrmutil -lc -lm
+
+tests.o: tests.c bitbuffer_chunk_tests.c
+	$(CC) $(CFLAGS) -c -o $@ tests.c
+
+unittests_runner: redistimeseries.so tests.o bitbuffer_chunk.o
+	$(CC) parse_policies.o compaction.o buffer.o  bitbuffer_chunk.o tests.o -o unittests_runner $(LIBS) -L$(RMUTIL_LIBDIR) -lrmutil -lc -lm
 
 unittests: unittests_runner
 	./unittests_runner

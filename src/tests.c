@@ -8,6 +8,7 @@
 #include "compaction.h"
 #include "buffer.h"
 #include "rmutil/alloc.h"
+#include "bitbuffer_chunk_tests.c"
 
 MU_TEST(test_valid_policy) {
     SimpleCompactionRule* parsedRules;
@@ -103,6 +104,7 @@ MU_TEST_SUITE(test_suite) {
 int main(int argc, char *argv[]) {
     RMUTil_InitAlloc();
     MU_RUN_SUITE(test_suite);
+    MU_RUN_SUITE(bitbuffer_suite);
 	MU_REPORT();
 	return 0;
 }
