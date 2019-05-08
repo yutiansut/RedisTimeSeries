@@ -454,7 +454,7 @@ int ReplySeriesRange(RedisModuleCtx *ctx, Series *series, api_timestamp_t start_
     			max(start_ts, series->lastTimestamp - series->retentionTime) : start_ts;
     }
     SeriesIterator iterator = SeriesQuery(series, start_ts, end_ts);
-    Sample sample;
+    Sample sample = {-1};
     void *context = NULL;
     if (aggObject != NULL)
         context = aggObject->createContext();

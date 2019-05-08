@@ -48,8 +48,31 @@ int BitBuffer_hasSpaceFor(struct BitBuffer *buffer, int bits_len) {
 int BitBuffer_SeekBack(struct BitBuffer *buffer, int bits_len) {
 //    bits_len -= buffer->bit_index;
 //    buffer->bit_index = 0;
-    buffer->bit_index -= bits_len % CHAR_BIT;
-    buffer->byte_index -= bits_len / CHAR_BIT;
+    BITBUFFER_TRACE(buffer, " SeekBack %d", bits_len)
+    while (bits_len > 0) {
+        BITBUFFER_TRACE_LEVEL(buffer, "left %d", 2, bits_len)
+        if (buffer->bit_index > 0) {
+            if (buffer->bit_index < bits_len) {
+                bits_len -= buffer->bit_index;
+                buffer->bit_index = 0;
+            } else {
+                buffer->bit_index -= bits_len;
+                bits_len = 0;
+            }
+        } else {
+            if (bits_len >= CHAR_BIT) {
+                buffer->byte_index -= 1;
+                bits_len -= CHAR_BIT;
+            } else {
+                buffer->bit_index = CHAR_BIT - bits_len;
+                buffer->byte_index -= 1;
+                bits_len = 0;
+            }
+        }
+    }
+//    buffer->bit_index -= bits_len % CHAR_BIT;
+//    buffer->byte_index -= bits_len / CHAR_BIT;
+    BITBUFFER_TRACE(buffer, " seeked", NULL)
     return BITBUFFER_OK;
 }
 

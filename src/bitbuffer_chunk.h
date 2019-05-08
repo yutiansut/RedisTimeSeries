@@ -14,15 +14,25 @@ union my64bits
     double    dbl;
 };
 
+typedef struct SampleData {
+    timestamp_t timestamp;
+    timestamp_t time_delta;
+    union my64bits last_data;
+    u_int64_t xor;
+    u_int8_t leading;
+    u_int8_t trailing;
+} SampleData;
+
 typedef struct CompressedChunkData {
-    timestamp_t last_timestamp;
+//    timestamp_t last_timestamp;
     timestamp_t last_time_delta;
-    double last_data;
-    u_int64_t last_xor;
-    u_int8_t last_leading;
-    u_int8_t last_trailing;
+//    union my64bits last_data;
+//    u_int8_t last_leading;
+//    u_int8_t last_trailing;
     int last_write_size_bits;
     BitBuffer *buffer;
+    SampleData last;
+    SampleData previous;
 } CompressedChunkData;
 
 u_int64_t compressData(CompressedChunkData *compressedChunkData, Sample sample, Chunk *chunk, int *data_size);

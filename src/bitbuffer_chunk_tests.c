@@ -13,8 +13,7 @@
 #include <time.h>
 #include <stdlib.h>
 
-//srand(time(NULL));   // Initialization, should only be called once.
-#define TEST_COUNT 2
+#define TEST_COUNT 250
 
 MU_TEST(test_compress_decompress) {
     printf("start\n");
@@ -23,13 +22,19 @@ MU_TEST(test_compress_decompress) {
     CompressedChunkData* compressedChunkData = (CompressedChunkData*)chunk->samples;
     compressedChunkData->buffer->trace = 1;
     int data_size;
-    double numbers[TEST_COUNT] = {0};
+    Sample samples[TEST_COUNT] = {0};
     for (int i=0; i<TEST_COUNT; i++) {
-        numbers[i] = (float)rand()/(float)(RAND_MAX/ 125.2); //(rand() % 64) / ((rand() % 32) || 1.2);
-        sample.data = numbers[i];
-        sample.timestamp = 1556442295 + i;
-        printf("sample %d\n", i);
-        data_size = ChunkAddSample(chunk, sample);
+//        samples[i].data = (float)rand()/(float)(RAND_MAX/ 125.2); //(rand() % 64) / ((rand() % 32) || 1.2);
+        samples[i].data = (float)rand()/(float)(RAND_MAX/ 125.2);
+        samples[i].timestamp = 1556442295 + i;
+        printf("sample %d value %lf\n", i, sample.data);
+        Sample sample1 = samples[i];
+        sample1.data = 12324 + sample.data;
+        printf("write 1\n");
+        data_size = ChunkAddSample(chunk, sample1);
+        chunk->num_samples--;
+        printf("write 2\n");
+        data_size = ChunkAddSample(chunk, samples[i]);
         mu_assert_double_eq(1, data_size);
     }
     printf("===\n");
@@ -38,8 +43,8 @@ MU_TEST(test_compress_decompress) {
     while (ChunkIteratorGetNext(&iter, &sample)) {
         printf("sample %d\n", i);
         printf("read %lld value %lf\n", sample.timestamp, sample.data);
-        mu_assert_double_eq(numbers[i], sample.data);
-        mu_assert_double_eq(i + 1556442295, sample.timestamp);
+        mu_assert_double_eq(samples[i].data, sample.data);
+        mu_assert_double_eq(samples[i].timestamp, sample.timestamp);
         i++;
     }
 }
@@ -51,7 +56,7 @@ MU_TEST(test_compress_decompress2) {
     CompressedChunkData* compressedChunkData = (CompressedChunkData*)chunk->samples;
     compressedChunkData->buffer->trace = 1;
     int data_size;
-    compressedChunkData->last_data = 0;
+    compressedChunkData->last.last_data.raw = 0;
     for (int i=0; i<4; i++) {
         printf("iter: %d\n", i);
         sample.data = 1.5 + (double)i;
@@ -61,7 +66,7 @@ MU_TEST(test_compress_decompress2) {
                 chunk,
                 &data_size);
         BitBuffer_write_bits_be(compressedChunkData->buffer,data, data_size);
-        compressedChunkData->last_data = sample.data;
+        compressedChunkData->last.last_data.dbl = sample.data;
         chunk->num_samples++;
     }
     printf("===\n");
@@ -78,8 +83,6 @@ MU_TEST(test_compress_decompress2) {
 
 
 MU_TEST(test_buffer_random) {
-    srand(time(0));
-
     int numbers[TEST_COUNT] = {0};
     BitBuffer *buffer = BitBuffer_new(1024 * 4);
     buffer->trace = 0;
@@ -149,9 +152,10 @@ MU_TEST(test_buffer_write_bits) {
 
 
 MU_TEST_SUITE(bitbuffer_suite) {
+    srand(time(NULL));
     MU_RUN_TEST(test_compress_decompress);
-//    MU_RUN_TEST(test_compress_decompress2);
-//    MU_RUN_TEST(test_buffer_write_bits);
-//    MU_RUN_TEST(test_buffer_random);
-//    MU_RUN_TEST(test_buffer_write_bit);
+    MU_RUN_TEST(test_compress_decompress2);
+    MU_RUN_TEST(test_buffer_write_bits);
+    MU_RUN_TEST(test_buffer_random);
+    MU_RUN_TEST(test_buffer_write_bit);
 }
