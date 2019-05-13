@@ -72,7 +72,7 @@ int BitBuffer_SeekBack(struct BitBuffer *buffer, int bits_len) {
     }
 //    buffer->bit_index -= bits_len % CHAR_BIT;
 //    buffer->byte_index -= bits_len / CHAR_BIT;
-    BITBUFFER_TRACE(buffer, " seeked", NULL)
+    BITBUFFER_TRACE(buffer, "seeked %d", bits_len)
     return BITBUFFER_OK;
 }
 

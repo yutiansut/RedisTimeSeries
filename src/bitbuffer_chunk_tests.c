@@ -10,6 +10,7 @@
 #include "bitbuffer_chunk.h"
 #include "rmutil/alloc.h"
 #include "chunk.h"
+#include "tsdb.h"
 #include <time.h>
 #include <stdlib.h>
 
@@ -25,14 +26,16 @@ MU_TEST(test_compress_decompress) {
     Sample samples[TEST_COUNT] = {0};
     for (int i=0; i<TEST_COUNT; i++) {
 //        samples[i].data = (float)rand()/(float)(RAND_MAX/ 125.2); //(rand() % 64) / ((rand() % 32) || 1.2);
-        samples[i].data = (float)rand()/(float)(RAND_MAX/ 125.2);
+        samples[i].data = (float)rand()/(float)(RAND_MAX/ 12345.2);
         samples[i].timestamp = 1556442295 + i;
         printf("sample %d value %lf\n", i, sample.data);
         Sample sample1 = samples[i];
-        sample1.data = 12324 + sample.data;
-        printf("write 1\n");
-        data_size = ChunkAddSample(chunk, sample1);
-        chunk->num_samples--;
+        for (int i=0; i < 1000; i++) {
+//            printf("write 1\n");
+            sample1.data = (float)rand()/(float)(RAND_MAX/ 10.2);
+            data_size = ChunkAddSample(chunk, sample1);
+            chunk->num_samples--;
+        }
         printf("write 2\n");
         data_size = ChunkAddSample(chunk, samples[i]);
         mu_assert_double_eq(1, data_size);
