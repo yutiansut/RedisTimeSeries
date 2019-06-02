@@ -16,8 +16,9 @@ union my64bits
 
 typedef struct SampleData {
     timestamp_t timestamp;
-    timestamp_t time_delta;
     union my64bits last_data;
+    timestamp_t time_delta;
+    int write_size_bits;
     u_int64_t xor;
     int leading;
     int trailing;
@@ -25,7 +26,7 @@ typedef struct SampleData {
 
 typedef struct CompressedChunkData {
 //    timestamp_t last_timestamp;
-    timestamp_t last_time_delta;
+//    timestamp_t last_time_delta;
 //    union my64bits last_data;
 //    u_int8_t last_leading;
 //    u_int8_t last_trailing;
@@ -35,7 +36,7 @@ typedef struct CompressedChunkData {
     SampleData previous;
 } CompressedChunkData;
 
-u_int64_t compressData(CompressedChunkData *compressedChunkData, Sample sample, Chunk *chunk, int *data_size);
+//u_int64_t compressData(CompressedChunkData *compressedChunkData, Sample sample, Chunk *chunk, int *data_size);
 double readXorValue(int currentIndex, CompressedChunkData *compressedChunkData, BitBuffer *buffer);
 Chunk * NewChunk(size_t sampleCount);
 #endif

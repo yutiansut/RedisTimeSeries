@@ -151,13 +151,13 @@ void BitBuffer_write_bits_le (struct BitBuffer *buffer, u_int64_t bits, int leng
     }
 }
 
-void BitBuffer_write_bits_be (struct BitBuffer *buffer, u_int64_t bits, int length)
+void BitBuffer_write_bits_be (struct BitBuffer *buffer, u_int8_t *bits, int length)
 {
-    BITBUFFER_TRACE(buffer, "bits: 0x%llx; length:%d", bits, length)
-    u_int8_t *data_ptr = (u_int8_t *)&bits;
+    BITBUFFER_TRACE(buffer, "length:%d", length)
+    u_int8_t *data_ptr = bits;
     int left = length;
     while (left > 0) {
-        BITBUFFER_TRACE_LEVEL(buffer,"left %d, data: %llx", 2, left, bits)
+        BITBUFFER_TRACE_LEVEL(buffer,"left %d, data: %x", 2, left, *data_ptr)
         unsigned int write_bits = 0;
         if (left >= CHAR_BIT) {
             BitBuffer_write(buffer, *data_ptr, CHAR_BIT);

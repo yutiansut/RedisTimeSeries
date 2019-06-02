@@ -33,7 +33,7 @@ int BitBuffer_hasSpaceFor(struct BitBuffer *buffer, int size);
 int BitBuffer_SeekBack(struct BitBuffer *buffer, int bits_len);
 int BitBuffer_write(struct BitBuffer *buffer, char bits, int size);
 int BitBuffer_writeBit (struct BitBuffer *buffer, char bit);
-void BitBuffer_write_bits_be(struct BitBuffer *buffer, u_int64_t bits, int length);
+void BitBuffer_write_bits_be (struct BitBuffer *buffer, u_int8_t *bits, int length);
 void BitBuffer_write_bits_le(struct BitBuffer *buffer, u_int64_t bits, int length);
 u_int64_t BitBuffer_read(struct BitBuffer *buffer, int size);
 void BitBuffer_free(BitBuffer *self);

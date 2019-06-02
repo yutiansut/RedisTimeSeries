@@ -133,7 +133,7 @@ unsigned int LeadingZeros64(u_int64_t x) {
 void CompressedChunkDataInit(CompressedChunkData *data) {
 //    data->last_data.raw = 0;
 //    data->last_xor = 0;
-    data->last_time_delta = 0;
+//    data->last_time_delta = 0;
     data->last_write_size_bits = 0;
 //    data->last_timestamp = 0;
 //    data->last_leading = 0;
@@ -151,7 +151,10 @@ Chunk * NewChunk(size_t sampleCount)
     ((CompressedChunkData*)newChunk->samples)->buffer = BitBuffer_new(sampleCount);
     CompressedChunkDataInit((CompressedChunkData*)newChunk->samples);
     ((CompressedChunkData*)newChunk->samples)->last.timestamp = 0;
+    ((CompressedChunkData*)newChunk->samples)->last.write_size_bits = 0;
+    ((CompressedChunkData*)newChunk->samples)->last.time_delta = 0;
     ((CompressedChunkData*)newChunk->samples)->last.leading = 0xFF;
+    ((CompressedChunkData*)newChunk->samples)->last.trailing = 0xFF;
     return newChunk;
 }
 
@@ -185,80 +188,70 @@ timestamp_t ChunkGetFirstTimestamp(Chunk *chunk) {
     return chunk->base_timestamp;
 }
 
-u_int64_t compressData(CompressedChunkData *compressedChunkData, Sample sample, Chunk *chunk, int *data_size) {
+void compressData(SampleData *last, Sample sample, Chunk *chunk, int *data_size, u_int64_t* xordata) {
     *data_size = 0;
-    u_int64_t xordata = 0;
-    if (chunk->num_samples == 0) {
-        *data_size = sizeof(double) * CHAR_BIT;
-        union my64bits data = {0};
-        data.dbl = sample.data;
-        //printf("!!! write size: %lu data_size:%d !!\n", sizeof(double) * CHAR_BIT, *data_size);
-        return htobe64(data.raw);
-    } else {
-        union my64bits current_data;
-        current_data.dbl = sample.data;
-//        last_data.dbl = compressedChunkData->last_data;
-        u_int64_t xor = compressedChunkData->last.last_data.raw ^ current_data.raw;
-//        u_int64_t buffer[200];
-        BitBuffer tempBuff;
-        BitBuffer_init(&tempBuff, 64, (char *) &xordata);
-        tempBuff.trace = 0;
-//        printf("\nstart compressData tracing, sample data: %lf: 0x%llx\n", current_data.dbl, current_data.raw);
+    volatile union my64bits current_data;
+    current_data.dbl = sample.data;
+    volatile u_int64_t xor = last->last_data.raw ^ current_data.raw;
+    BitBuffer tempBuff;
+    BitBuffer_init(&tempBuff, 64, (char *) xordata);
+    tempBuff.trace = 0;
+//    printf("\nstart compressData tracing, xor: %llx sample data: %lf last: 0x%lf\n", xor, current_data.dbl, last->last_data.dbl);
 
-        if (xor == 0) {
-            BitBuffer_writeBit(&tempBuff, 0);
-            goto finish;
-        }
-        else {
-            BitBuffer_writeBit(&tempBuff, 1);
-        }
-
-        unsigned int leading = LeadingZeros64(xor);
-        unsigned int trailing = TrailingZeros64(xor);
-
-        if (leading >= 32) {
-            leading = 31;
-        }
-
-        if (compressedChunkData->last.leading != 0xFF &&
-            leading >= compressedChunkData->last.leading &&
-            trailing >= compressedChunkData->last.trailing)
-        {
-            // sameTrailingLeadingBits = 0
-            BitBuffer_writeBit(&tempBuff, 0);
-            u_int8_t bits_len =  (64 - compressedChunkData->last.trailing) - compressedChunkData->last.leading;
-            //printf("problem? compressedChunkData->last_trailing=%d compressedChunkData->last_leading=%d\n", compressedChunkData->last_trailing, compressedChunkData->last_leading);
-            BitBuffer_write_bits_be(&tempBuff, htobe64(xor << compressedChunkData->last.leading), bits_len);
-//            printf("write: xor: 0x%llx trailing: %d leading: %d sigbits: %d\n", xor >> trailing, trailing, leading, 64 - leading - trailing);
-        }
-        else
-        {
-            compressedChunkData->last.leading = leading;
-            compressedChunkData->last.trailing = trailing;
-            // sameTrailingLeadingBits = 1
-            BitBuffer_writeBit(&tempBuff, 1);
-            //printf("writing leading %d to buff\n", leading<<3);
-            BitBuffer_write(&tempBuff, leading << 3, 5);
-            // Note that if leading == trailing == 0, then sigbits == 64.  But that value doesn't actually fit into the 6 bits we have.
-            // Luckily, we never need to encode 0 significant bits, since that would put us in the other case (vdelta == 0).
-            // So instead we write out a 0 and adjust it back to 64 on unpacking.
-            u_int8_t sigbits = 64 - leading - trailing;
-            BitBuffer_write(&tempBuff, sigbits << 2, 6);
-            BitBuffer_write_bits_be(&tempBuff, htobe64(xor << leading), sigbits);
-            //printf("xor: %lX, last_data:%x current_data: %x\n", xor >> trailing, compressedChunkData->last_data, sample.data);
-//            printf("write: xor: 0x%llx trailing: %d leading: %d sigbits: %d\n", xor >> trailing, trailing, leading, sigbits);
-        }
-        finish:
-        //printf("write size: byte:%d bit:%d\n", tempBuff.byte_index, tempBuff.bit_index);
-        *data_size = tempBuff.byte_index * CHAR_BIT + tempBuff.bit_index;
-        //printf("end compressData tracing %llx\n\n", be64toh(xordata));
-        compressedChunkData->last.xor = xor;
-//        compressedChunkData->last.leading = leading;
-//        compressedChunkData->last.trailing = trailing;
-        compressedChunkData->last.last_data.dbl = sample.data;
-//        printf("data_size %d", *data_size);
-        return xordata;
+    if (xor == 0) {
+        BitBuffer_writeBit(&tempBuff, 0);
+        goto finish;
     }
+    else {
+        BitBuffer_writeBit(&tempBuff, 1);
+    }
+
+    volatile unsigned int leading = LeadingZeros64(xor);
+    volatile unsigned int trailing = TrailingZeros64(xor);
+
+    if (leading >= 32) {
+        leading = 31;
+    }
+
+    if (last->leading != 0xFF &&
+        leading >= last->leading &&
+        trailing >= last->trailing)
+    {
+        // sameTrailingLeadingBits = 0
+        BitBuffer_writeBit(&tempBuff, 0);
+        u_int8_t bits_len =  (64 - last->trailing) - last->leading;
+        u_int32_t last_leading = htobe64(xor << last->leading);
+        //printf("problem? compressedChunkData->last_trailing=%d compressedChunkData->last_leading=%d\n", compressedChunkData->last_trailing, compressedChunkData->last_leading);
+        BitBuffer_write_bits_be(&tempBuff, &last_leading, bits_len);
+//            printf("write: xor: 0x%llx trailing: %d leading: %d sigbits: %d\n", xor >> trailing, trailing, leading, 64 - leading - trailing);
+    }
+    else
+    {
+        last->leading = leading;
+        last->trailing = trailing;
+        // sameTrailingLeadingBits = 1
+        BitBuffer_writeBit(&tempBuff, 1);
+        //printf("writing leading %d to buff\n", leading<<3);
+        BitBuffer_write(&tempBuff, leading << 3, 5);
+        // Note that if leading == trailing == 0, then sigbits == 64.  But that value doesn't actually fit into the 6 bits we have.
+        // Luckily, we never need to encode 0 significant bits, since that would put us in the other case (vdelta == 0).
+        // So instead we write out a 0 and adjust it back to 64 on unpacking.
+        u_int8_t sigbits = 64 - leading - trailing;
+        BitBuffer_write(&tempBuff, sigbits << 2, 6);
+        u_int32_t current_leading = htobe64(xor << last->leading);
+        BitBuffer_write_bits_be(&tempBuff, &current_leading, sigbits);
+//        printf("xor: %lX, last_data:%x current_data: %x\n", xor >> trailing, compressedChunkData->last_data, sample.data);
+//            printf("write: xor: 0x%llx trailing: %d leading: %d sigbits: %d\n", xor >> trailing, trailing, leading, sigbits);
+    }
+    finish:
+    //printf("write size: byte:%d bit:%d\n", tempBuff.byte_index, tempBuff.bit_index);
+    *data_size = tempBuff.byte_index * CHAR_BIT + tempBuff.bit_index;
+//    printf("end compressData tracing %llx\n\n", be64toh(xordata));
+    last->xor = xor;
+//        last->leading = leading;
+//        last->trailing = trailing;
+    last->last_data.dbl = sample.data;
+//        printf("data_size %d\n", *data_size);
 }
 
 int ChunkAddSample(Chunk *chunk, Sample sample) {
@@ -269,51 +262,65 @@ int ChunkAddSample(Chunk *chunk, Sample sample) {
     CompressedChunkData *compressedChunkData = ChunkGetCompressedChunkData(chunk);
     BitBuffer *buff = compressedChunkData->buffer;
     buff->trace = 0;
+    varintBuf varint;
+
+    // Handle last sample override
+    if (compressedChunkData->last.timestamp == sample.timestamp) {
+        buff->trace = 0;
+        BitBuffer_SeekBack(buff, compressedChunkData->last.write_size_bits);
+        compressedChunkData->last = compressedChunkData->previous;
+    }
 
     if (chunk->num_samples == 0) {
         // initialize base_timestamp
         chunk->base_timestamp = sample.timestamp;
-    }
-    // Handle last sample override
-    if (compressedChunkData->last.timestamp == sample.timestamp) {
-        buff->trace = 0;
-//        printf("last timestamp: %lld; current: %lld\n", compressedChunkData->last.timestamp, sample.timestamp);
-        compressedChunkData->last = compressedChunkData->previous;
-        BitBuffer_SeekBack(buff, compressedChunkData->last_write_size_bits);
-//        timestamp_t prev_timestamp = compressedChunkData->last.timestamp - compressedChunkData->last_time_delta;
-//        compressedChunkData->last_timestamp = prev_timestamp;
-//        compressedChunkData->last_data.raw = compressedChunkData->last_data.raw ^ compressedChunkData->last_xor;
-//        printf("last data: %lf; current: %lf\n", compressedChunkData->last.last_data.dbl, sample.data);
+
+        BitBuffer_writeBit(buff, 1);
+        size_t pos = varintEncode(sample.timestamp, varint);
+        if (WriteVarintBuffer(varint, pos, buff) == 0) {
+            return 0;
+        }
+        union my64bits data = {0};
+        data.dbl = sample.data;
+        u_int64_t raw_data = htobe64(data.raw);
+        BitBuffer_write_bits_be(buff, (u_int8_t *) &raw_data, sizeof(double) * CHAR_BIT);
+
+        int timestamp_size = VARINT_LEN(pos) * CHAR_BIT + 1;
+        compressedChunkData->last.write_size_bits = sizeof(double) * CHAR_BIT + timestamp_size;
+        compressedChunkData->last.timestamp = sample.timestamp;
+        compressedChunkData->last.last_data.dbl = sample.data;
+        compressedChunkData->last.time_delta = 0;
+        compressedChunkData->last.leading = 0xFF;
+//        compressedChunkData->last.trailing = 0xFF;
+
+        chunk->num_samples++;
+
+        return 1;
     }
 
     compressedChunkData->previous = compressedChunkData->last;
 
     // timestamp compression
-    timestamp_t timestamp;
+    int write_delta = 0;
     int delta = sample.timestamp - compressedChunkData->last.timestamp;
-    int double_delta = delta - compressedChunkData->last_time_delta;
-    if (chunk->num_samples == 0) {
-        timestamp = sample.timestamp;
-    } else if (chunk->num_samples == 1) {
-        timestamp = delta;
-        compressedChunkData->last_time_delta = delta;
+    int double_delta = delta - compressedChunkData->last.time_delta;
+    if (chunk->num_samples == 1) {
+        write_delta = delta;
     } else {
-        timestamp = double_delta;
-        compressedChunkData->last_time_delta = delta;
+        write_delta = double_delta;
     }
 
-    varintBuf varint;
-    size_t pos = varintEncode(timestamp, varint);
-
+    size_t pos = varintEncode(write_delta, varint);
     int timestamp_size;
-    if (timestamp == 0) {
+    if (write_delta == 0) {
         timestamp_size = 1;
     } else {
         timestamp_size = VARINT_LEN(pos) * CHAR_BIT + 1;
     }
 
     int data_size = 0;
-    u_int64_t data = compressData(compressedChunkData, sample, chunk, &data_size);
+    u_int64_t data[2] = {0};
+    compressData(&compressedChunkData->last, sample, chunk, &data_size, (u_int64_t *) &data);
 //    printf("\n compressed  xor: %llx, bits: %d\n", data,data_size);
     int total_size = timestamp_size + data_size;
 
@@ -322,7 +329,7 @@ int ChunkAddSample(Chunk *chunk, Sample sample) {
     }
 
     // TODO: fix
-    if (timestamp == 0) {
+    if (write_delta == 0) {
         BitBuffer_writeBit(buff, 0);
     } else {
         BitBuffer_writeBit(buff, 1);
@@ -330,11 +337,12 @@ int ChunkAddSample(Chunk *chunk, Sample sample) {
             return 0;
         }
     }
-    BitBuffer_write_bits_be(buff, data, data_size);
-    chunk->num_samples++;
+    BitBuffer_write_bits_be(buff, (u_int8_t *) &data, data_size);
+    compressedChunkData->last.time_delta = delta;
     compressedChunkData->last.last_data.dbl = sample.data;
-    compressedChunkData->last_write_size_bits = total_size;
+    compressedChunkData->last.write_size_bits = total_size;
     compressedChunkData->last.timestamp = sample.timestamp;
+    chunk->num_samples++;
 
     return 1;
 }
@@ -404,23 +412,24 @@ int ChunkIteratorGetNext(ChunkIterator *iter, Sample* sample) {
     if (iter->currentIndex < iter->chunk->num_samples) {
         read_buffer = BitBuffer_read(buffer, 1);
         if (read_buffer == 0) {
-            timestamp = compressedChunkData->last.timestamp + compressedChunkData->last_time_delta;
+            timestamp = compressedChunkData->last.timestamp + compressedChunkData->last.time_delta;
         } else {
             uint64_t varint = ReadVarint(buffer);
             if (iter->currentIndex == 0) {
                 timestamp = varint;
             } else if (iter->currentIndex == 1) {
                 timestamp = compressedChunkData->last.timestamp + varint;
-                compressedChunkData->last_time_delta = varint;
+                compressedChunkData->last.time_delta = varint;
             } else {
-                compressedChunkData->last_time_delta = compressedChunkData->last_time_delta + varint;
-                timestamp = compressedChunkData->last.timestamp + compressedChunkData->last_time_delta;
+                compressedChunkData->last.time_delta = compressedChunkData->last.time_delta + varint;
+                timestamp = compressedChunkData->last.timestamp + compressedChunkData->last.time_delta;
             }
-            compressedChunkData->last_time_delta = varint;
+            compressedChunkData->last.time_delta = varint;
         }
 //        printf("> start xor value; iter->currentIndex: %d\n", iter->currentIndex);
         double data = readXorValue(iter->currentIndex, compressedChunkData, buffer);
         compressedChunkData->last.timestamp = timestamp;
+        compressedChunkData->last.last_data.dbl = data;
         sample->timestamp = timestamp;
         sample->data = data;
         iter->currentIndex++;
