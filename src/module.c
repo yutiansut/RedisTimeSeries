@@ -62,7 +62,11 @@ static int parseLabelsFromArgs(RedisModuleString **argv, int argc, size_t *label
     return REDISMODULE_OK;
 }
 
-int GetSeries(RedisModuleCtx *ctx, RedisModuleString *keyName, Series **series){
+int GetSeries(RedisModuleCtx *ctx, RedisModuleString *keyName, Series **series) {
+    return GetSeriesEx(ctx, keyName, series, NULL);
+}
+
+int GetSeriesEx(RedisModuleCtx *ctx, RedisModuleString *keyName, Series **series, RedisModuleKey **retKey){
     RedisModuleKey *key = RedisModule_OpenKey(ctx, keyName, REDISMODULE_READ|REDISMODULE_WRITE);
     if (RedisModule_KeyType(key) == REDISMODULE_KEYTYPE_EMPTY) {
         RedisModule_ReplyWithError(ctx, "TSDB: the key does not exist"); // TODO add keyName
@@ -73,6 +77,9 @@ int GetSeries(RedisModuleCtx *ctx, RedisModuleString *keyName, Series **series){
         return FALSE;
     }
     *series = RedisModule_ModuleTypeGetValue(key);
+    if (retKey) {
+        *retKey = key;
+    }
     return TRUE;
 }
 

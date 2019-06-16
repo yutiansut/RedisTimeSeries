@@ -90,9 +90,11 @@ void FreeSeries(void *value) {
     CompactionRule *rule = currentSeries->rules;
     while (rule != NULL) {
         Series *dstSeries;
-        int status = GetSeries(ctx, rule->destKey, &dstSeries);
+        RedisModuleKey *dest_key = NULL;
+        int status = GetSeriesEx(ctx, rule->destKey, &dstSeries, &dest_key);
         if(status){
         	SeriesDeleteSrcRule(dstSeries, currentSeries->keyName);
+            RedisModule_CloseKey(dest_key);
         }
     	CompactionRule *nextRule = rule->nextRule;
     	FreeCompactionRule(rule);
@@ -100,9 +102,11 @@ void FreeSeries(void *value) {
     }
     if(currentSeries->srcKey){
         Series *srcSeries;
-        int status = GetSeries(ctx, currentSeries->srcKey, &srcSeries);
+        RedisModuleKey *source_key = NULL;
+        int status = GetSeriesEx(ctx, currentSeries->srcKey, &srcSeries, &source_key);
         if(status){
         	SeriesDeleteRule(srcSeries, currentSeries->keyName);
+            RedisModule_CloseKey(source_key);
         }
         free(currentSeries->srcKey);
     }
