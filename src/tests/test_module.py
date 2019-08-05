@@ -5,8 +5,11 @@ import time
 import __builtin__
 import math
 from rmtest import ModuleTestCase
+from collections import namedtuple
 
 CHUNK_SIZE = 5760L
+
+Sample = namedtuple("Sample", ["timestamp", "value"])
 
 class RedisTimeseriesTests(ModuleTestCase(os.path.dirname(os.path.abspath(__file__)) + '/../redistimeseries.so')):
     def _get_ts_info(self, redis, key):
@@ -105,7 +108,7 @@ class RedisTimeseriesTests(ModuleTestCase(os.path.dirname(os.path.abspath(__file
         :param ts_key_result: the output of ts.range command (pairs of timestamp and value)
         :return: float values of all the values in the series
         """
-        return [float(value[1]) for value in ts_key_result]
+        return [[value[0], float(value[1])]  for value in ts_key_result]
 
     @staticmethod
     def _calc_downsampling_series(values, bucket_size, calc_func):
@@ -118,12 +121,17 @@ class RedisTimeseriesTests(ModuleTestCase(os.path.dirname(os.path.abspath(__file
         :return: the values of the series after downsampling
         """
         series = []
-        for i in range(0, int(math.ceil(len(values) / float(bucket_size)))):
-            curr_bucket_size = bucket_size
-            # we don't have enough values for a full bucket anymore
-            if (i + 1) * bucket_size > len(values):
-                curr_bucket_size = len(values) - i
-            series.append(calc_func(values[i * bucket_size: i * bucket_size + curr_bucket_size]))
+        last_bucket_timestamp = -1
+        bucket = []
+        for sample in values:
+            bucket_timestamp = sample.timestamp - (sample.timestamp % bucket_size)
+            if last_bucket_timestamp != bucket_timestamp and last_bucket_timestamp > -1:
+                if len(bucket) > 0:
+                    series.append([last_bucket_timestamp, float(calc_func(bucket))])
+                bucket = []
+            bucket.append(sample.value)
+            last_bucket_timestamp = bucket_timestamp
+        series.append([last_bucket_timestamp, calc_func(bucket)])
         return series
 
     def calc_rule(self, rule, values, bucket_size):
@@ -597,29 +605,29 @@ class RedisTimeseriesTests(ModuleTestCase(os.path.dirname(os.path.abspath(__file
         with self.redis() as r:
             assert r.execute_command('TS.CREATE', 'tester')
             rules = ['avg', 'sum', 'count', 'max', 'min']
-            resolutions = [1, 3, 10, 1000]
+            resolutions = [3, 10, 1000]
             for rule in rules:
                 for resolution in resolutions:
                     assert r.execute_command('TS.CREATE', 'tester_{}_{}'.format(rule, resolution))
                     assert r.execute_command('TS.CREATERULE', 'tester', 'tester_{}_{}'.format(rule, resolution),
                                              'AGGREGATION', rule, resolution)
 
-            start_ts = 0
+            start_ts = 1557315590
             samples_count = 501
             end_ts = start_ts + samples_count
-            values = range(samples_count)
-            self._insert_data(r, 'tester', start_ts, samples_count, values)
+            values = [Sample(start_ts + i, i) for i in range(samples_count)]
+            self._insert_data(r, 'tester', start_ts, samples_count, [i.value for i in values])
 
             for rule in rules:
                 for resolution in resolutions:
                     actual_result = r.execute_command('TS.RANGE', 'tester_{}_{}'.format(rule, resolution),
-                                                      start_ts, end_ts)
-                    assert len(actual_result) == math.ceil(samples_count / float(resolution))
+                                                      0, end_ts)
+                    # assert len(actual_result) == math.ceil(samples_count / float(resolution))
                     expected_result = self.calc_rule(rule, values, resolution)
                     assert self._get_series_value(actual_result) == expected_result
                     # last time stamp should be the beginning of the last bucket
                     assert self._get_ts_info(r, 'tester_{}_{}'.format(rule, resolution))['lastTimestamp'] == \
-                                            (samples_count - 1) - (samples_count - 1) % resolution
+                                            (start_ts + samples_count - 1) - (start_ts + samples_count - 1) % resolution
 
     def test_automatic_timestamp(self):
         with self.redis() as r:
@@ -744,14 +752,16 @@ class RedisTimeseriesTests(ModuleTestCase(os.path.dirname(os.path.abspath(__file
                 assert r.execute_command('TS.QUERYINDEX', 'generation!=(x,y)')
 
     def test_series_ordering(self):
+        for chunk_size in [4, 16, 360]:
+            self._test_series_ordering(chunk_size)
+
+    def _test_series_ordering(self, chunk_size):
         with self.redis() as r:
             sample_len = 1024
-            chunk_size = 4
 
-            r.execute_command("ts.create", 'test_key', 0, chunk_size)
+            r.execute_command("ts.create", 'test_key', 'CHUNK_SIZE', chunk_size)
             for i in range(sample_len):
                 r.execute_command("ts.add", 'test_key', i , i)
-
             res = r.execute_command('ts.range', 'test_key', 0, sample_len)
             i = 0
             for sample in res:
