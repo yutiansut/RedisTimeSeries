@@ -72,6 +72,10 @@ ChunkIterator NewChunkIterator(Chunk* chunk) {
     return (ChunkIterator){.chunk = chunk, .currentIndex = 0};
 }
 
+void ChunkIteratorClose(ChunkIterator *iter) {
+    // NO-OP
+}
+
 int ChunkIteratorGetNext(ChunkIterator *iter, Sample* sample) {
     if (iter->currentIndex < iter->chunk->num_samples) {
         iter->currentIndex++;

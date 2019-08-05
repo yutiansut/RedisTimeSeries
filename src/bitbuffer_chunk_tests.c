@@ -60,7 +60,7 @@ MU_TEST(test_compress_decompress2) {
     CompressedChunkData* compressedChunkData = (CompressedChunkData*)chunk->samples;
     compressedChunkData->buffer->trace = 1;
     int data_size;
-    compressedChunkData->last.last_data.raw = 0;
+    compressedChunkData->last.data.raw = 0;
     for (int i=0; i<4; i++) {
         printf("iter: %d\n", i);
         sample.data = 1.5 + (double)i;
@@ -70,7 +70,7 @@ MU_TEST(test_compress_decompress2) {
                 chunk,
                 &data_size);
         BitBuffer_write_bits_be(compressedChunkData->buffer,data, data_size);
-        compressedChunkData->last.last_data.dbl = sample.data;
+        compressedChunkData->last.data.dbl = sample.data;
         chunk->num_samples++;
     }
     printf("===\n");

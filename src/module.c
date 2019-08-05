@@ -487,6 +487,10 @@ int ReplySeriesRange(RedisModuleCtx *ctx, Series *series, api_timestamp_t start_
         arraylen++;
     }
 
+    SeriesIteratorClose(&iterator);
+    if (context) {
+        free(context);
+    }
     RedisModule_ReplySetArrayLength(ctx,arraylen);
     return REDISMODULE_OK;
 }

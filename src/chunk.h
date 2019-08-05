@@ -47,4 +47,5 @@ size_t Chunk_MemorySize(Chunk *chunk);
 
 ChunkIterator NewChunkIterator(Chunk *chunk);
 int ChunkIteratorGetNext(ChunkIterator *iter, Sample* sample);
+void ChunkIteratorClose(ChunkIterator *iter);
 #endif

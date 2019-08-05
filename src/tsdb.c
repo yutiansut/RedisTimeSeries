@@ -209,6 +209,9 @@ SeriesIterator SeriesQuery(Series *series, api_timestamp_t minTimestamp, api_tim
 }
 
 void SeriesIteratorClose(SeriesIterator *iterator) {
+    if (iterator->chunkIteratorInitialized) {
+        ChunkIteratorClose(&iterator->chunkIterator);
+    }
     RedisModule_DictIteratorStop(iterator->dictIter);
 }
 
@@ -240,6 +243,7 @@ int SeriesIteratorGetNext(SeriesIterator *iterator, Sample *currentSample) {
             if (!RedisModule_DictNextC(iterator->dictIter, NULL, (void*)&iterator->currentChunk)) {
                 iterator->currentChunk = NULL;
             }
+//            ChunkIteratorClose(&iterator->chunkIterator);
             iterator->chunkIteratorInitialized = FALSE;
             continue;
         }

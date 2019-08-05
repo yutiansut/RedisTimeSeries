@@ -16,7 +16,7 @@ union my64bits
 
 typedef struct SampleData {
     timestamp_t timestamp;
-    union my64bits last_data;
+    union my64bits data;
     timestamp_t time_delta;
     int write_size_bits;
     u_int64_t xor;
@@ -25,12 +25,6 @@ typedef struct SampleData {
 } SampleData;
 
 typedef struct CompressedChunkData {
-//    timestamp_t last_timestamp;
-//    timestamp_t last_time_delta;
-//    union my64bits last_data;
-//    u_int8_t last_leading;
-//    u_int8_t last_trailing;
-    int last_write_size_bits;
     BitBuffer *buffer;
     SampleData last;
     SampleData previous;
