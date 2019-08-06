@@ -200,3 +200,52 @@ BitBuffer_read (struct BitBuffer *buffer, int size)
 
     return bin;
 }
+
+/*
+ * varint section taken from Redisearch
+ * from: https://github.com/RedisLabsModules/RediSearch/blob/master/src/varint.c
+ */
+
+size_t varintEncode(uint64_t value, uint8_t *vbuf) {
+    unsigned pos = sizeof(varintBuf) - 1;
+    vbuf[pos] = value & 127;
+    while (value >>= 7) {
+        vbuf[--pos] = 128 | (--value & 127);
+    }
+    return pos;
+}
+
+uint64_t ReadVarint(BitBuffer *b) {
+
+    unsigned char c = BitBuffer_read(b, CHAR_BIT);
+
+    uint64_t val = c & 127;
+    while (c >> 7) {
+        ++val;
+        c = BitBuffer_read(b, CHAR_BIT);
+        val = (val << 7) | (c & 127);
+    }
+
+    return val;
+}
+
+size_t WriteVarintBuffer(varintBuf varint, size_t pos, BitBuffer *buf) {
+//    varintBuf varint;
+//    size_t pos = varintEncode(value, varint);
+    size_t len = VARINT_LEN(pos);
+    size_t written = 0;
+    if (BitBuffer_hasSpaceFor(buf, len * CHAR_BIT) != BITBUFFER_OK) {
+        return 0;
+    }
+
+    for (size_t i=0; i < len; i++) {
+        if (BitBuffer_write(buf, *VARINT_BUF(varint, pos + i), CHAR_BIT) != BITBUFFER_OK) {
+            break;
+        }
+        written++;
+
+    }
+    return written;
+}
+
+// End of varint section

@@ -82,6 +82,23 @@ MU_TEST(test_buffer2) {
     BitBuffer_free(buff);
 }
 
+
+MU_TEST(test_buffer3) {
+    int data = 35; // 6 bits
+    BitBuffer *buff = BitBuffer_new(1024);
+    BitBuffer *reader = BitBuffer_newWithData(1024, buff->data);
+    varintBuf varint;
+    uint64_t x = 1565085961072;
+    size_t pos = varintEncode(x, varint);
+    int res = WriteVarintBuffer(varint, pos, buff);
+    mu_check(res != 0);
+    uint64_t result = 0;
+    result = ReadVarint(reader);
+    printf("\n%ud\n", result);
+    mu_check(result == 1565085961072);
+    BitBuffer_free(buff);
+}
+
 MU_TEST(test_StringLenAggTypeToEnum) {
     mu_check(StringAggTypeToEnum("min") == TS_AGG_MIN);
     mu_check(StringAggTypeToEnum("max") == TS_AGG_MAX);
@@ -94,17 +111,18 @@ MU_TEST(test_StringLenAggTypeToEnum) {
 }
 
 MU_TEST_SUITE(test_suite) {
-	MU_RUN_TEST(test_valid_policy);
+//	MU_RUN_TEST(test_valid_policy);
 	MU_RUN_TEST(test_invalid_policy);
     MU_RUN_TEST(test_StringLenAggTypeToEnum);
 	MU_RUN_TEST(test_buffer);
     MU_RUN_TEST(test_buffer2);
+    MU_RUN_TEST(test_buffer3);
 }
 
 int main(int argc, char *argv[]) {
     RMUTil_InitAlloc();
     MU_RUN_SUITE(test_suite);
-    MU_RUN_SUITE(bitbuffer_suite);
+//    MU_RUN_SUITE(bitbuffer_suite);
 	MU_REPORT();
 	return 0;
 }

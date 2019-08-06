@@ -5,59 +5,6 @@
 #include "rmutil/alloc.h"
 #include "portable_endian.h"
 
-/*
- * varint section taken from Redisearch
- * from: https://github.com/RedisLabsModules/RediSearch/blob/master/src/varint.c
- */
-
-#define VARINT_BUF(buf, pos) ((buf) + pos)
-#define VARINT_LEN(pos) (sizeof(varintBuf) - (pos))
-
-typedef uint8_t varintBuf[24];
-
-static inline size_t varintEncode(uint32_t value, uint8_t *vbuf) {
-    unsigned pos = sizeof(varintBuf) - 1;
-    vbuf[pos] = value & 127;
-    while (value >>= 7) {
-        vbuf[--pos] = 128 | (--value & 127);
-    }
-    return pos;
-}
-
-static inline uint64_t ReadVarint(BitBuffer *b) {
-
-    unsigned char c = BitBuffer_read(b, CHAR_BIT);
-
-    uint32_t val = c & 127;
-    while (c >> 7) {
-        ++val;
-        c = BitBuffer_read(b, CHAR_BIT);
-        val = (val << 7) | (c & 127);
-    }
-
-    return val;
-}
-
-size_t WriteVarintBuffer(varintBuf varint, size_t pos, BitBuffer *buf) {
-//    varintBuf varint;
-//    size_t pos = varintEncode(value, varint);
-    size_t len = VARINT_LEN(pos);
-    size_t written = 0;
-    if (BitBuffer_hasSpaceFor(buf, len * CHAR_BIT) != BITBUFFER_OK) {
-        return 0;
-    }
-
-    for (int i=0; i < len; i++) {
-        if (BitBuffer_write(buf, *VARINT_BUF(varint, pos + i), CHAR_BIT) != BITBUFFER_OK) {
-            break;
-        }
-        written++;
-
-    }
-    return written;
-}
-
-// End of varint section
 
 // bit functions
 
@@ -188,7 +135,7 @@ void compressData(SampleData *last, Sample sample, int *data_size, u_int64_t* xo
     volatile u_int64_t xor = last->data.raw ^ current_data.raw;
     BitBuffer tempBuff;
     BitBuffer_init(&tempBuff, 64, (char *) xordata);
-    tempBuff.trace = 1;
+    tempBuff.trace = 0;
 //    printf("\nstart compressData tracing, xor: %llx sample data: %lf last: 0x%lf\n", xor, current_data.dbl, last->last_data.dbl);
 
     if (xor == 0) {
@@ -264,6 +211,8 @@ int ChunkAddSample(Chunk *chunk, Sample sample) {
     // Handle last sample override
     if (compressedChunkData->last.timestamp == sample.timestamp) {
         buff->trace = 0;
+        // we do not decrement chunk->num_samples here because it happens in SeriesAddSample, we do want to move it into
+        // the chunk abstraction
         BitBuffer_SeekBack(buff, compressedChunkData->last.write_size_bits);
         compressedChunkData->last = compressedChunkData->previous;
     }
@@ -327,7 +276,7 @@ int ChunkAddSample(Chunk *chunk, Sample sample) {
         compressData(&compressedChunkData->last, sample, &data_size, (u_int64_t *) &data, &trailing, &leading, &xor);
 //    }
 
-    printf("\n compressed  xor: %llx, bits: %d\n", data, data_size);
+//    printf("\n compressed  xor: %llx, bits: %d\n", data, data_size);
     int total_size = timestamp_size + data_size;
 
     if (BitBuffer_hasSpaceFor(buff, total_size + 1) != BITBUFFER_OK) {
@@ -442,7 +391,7 @@ int ChunkIteratorGetNext(ChunkIterator *iter, Sample* sample) {
             }
             compressedChunkData->last.time_delta = varint;
         }
-        printf("> start xor value; iter->currentIndex: %d, %l\n", iter->currentIndex, buffer);
+//        printf("> start xor value; iter->currentIndex: %d, %l\n", iter->currentIndex, buffer);
         double data = readXorValue(iter->currentIndex, compressedChunkData, buffer);
         compressedChunkData->last.timestamp = timestamp;
         compressedChunkData->last.data.dbl = data;

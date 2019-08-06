@@ -8,14 +8,23 @@
 #include <sys/types.h>
 #include <limits.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #define BITBUFFER_OK 0
 #define BITBUFFER_ERROR 1
 #define BITBUFFER_OUT_OF_SPACE 2
 
+/*
+ * varint section taken from Redisearch
+ * from: https://github.com/RedisLabsModules/RediSearch/blob/master/src/varint.c
+ */
 
-#ifdef __linux__
-#endif
+#define VARINT_BUF(buf, pos) ((buf) + pos)
+#define VARINT_LEN(pos) (sizeof(varintBuf) - (pos))
+
+typedef uint8_t varintBuf[24];
+
+/* end section */
 
 typedef struct BitBuffer
 {
@@ -37,4 +46,8 @@ void BitBuffer_write_bits_be (struct BitBuffer *buffer, u_int8_t *bits, int leng
 void BitBuffer_write_bits_le(struct BitBuffer *buffer, u_int64_t bits, int length);
 u_int64_t BitBuffer_read(struct BitBuffer *buffer, int size);
 void BitBuffer_free(BitBuffer *self);
+
+size_t varintEncode(uint64_t value, uint8_t *vbuf);
+inline uint64_t ReadVarint(BitBuffer *b);
+size_t WriteVarintBuffer(varintBuf varint, size_t pos, BitBuffer *buf);
 #endif
