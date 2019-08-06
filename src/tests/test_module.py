@@ -356,9 +356,10 @@ class RedisTimeseriesTests(ModuleTestCase(os.path.dirname(os.path.abspath(__file
             expected_result = {'chunkCount': math.ceil((samples_count + 1) / 360.0),
                                'lastTimestamp': start_ts + samples_count -1,
                                'maxSamplesPerChunk': CHUNK_SIZE,
-                               'retentionSecs': 0L,
+                               'retentionTime': 0L,
                                'labels': [],
-                               'rules': [['tester_agg_max_10', 10L, 'AVG']]}
+                               'rules': [['tester_agg_max_10', 10L, 'AVG']],
+                               'sourceKey': None}
             self._assert_ts_info(expected_result, actual_result)
 
     def test_delete_key(self):
