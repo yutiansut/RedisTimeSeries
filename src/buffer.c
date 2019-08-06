@@ -206,7 +206,7 @@ BitBuffer_read (struct BitBuffer *buffer, int size)
  * from: https://github.com/RedisLabsModules/RediSearch/blob/master/src/varint.c
  */
 
-size_t varintEncode(uint64_t value, uint8_t *vbuf) {
+size_t varintEncode(u_int64_t value, u_int8_t *vbuf) {
     unsigned pos = sizeof(varintBuf) - 1;
     vbuf[pos] = value & 127;
     while (value >>= 7) {
@@ -215,11 +215,11 @@ size_t varintEncode(uint64_t value, uint8_t *vbuf) {
     return pos;
 }
 
-uint64_t ReadVarint(BitBuffer *b) {
+u_int64_t ReadVarint(BitBuffer *b) {
 
     unsigned char c = BitBuffer_read(b, CHAR_BIT);
 
-    uint64_t val = c & 127;
+    u_int64_t val = c & 127;
     while (c >> 7) {
         ++val;
         c = BitBuffer_read(b, CHAR_BIT);
