@@ -22,7 +22,7 @@
 #define VARINT_BUF(buf, pos) ((buf) + pos)
 #define VARINT_LEN(pos) (sizeof(varintBuf) - (pos))
 
-typedef uint8_t varintBuf[24];
+typedef u_int8_t varintBuf[24];
 
 /* end section */
 
@@ -47,7 +47,7 @@ void BitBuffer_write_bits_le(struct BitBuffer *buffer, u_int64_t bits, int lengt
 u_int64_t BitBuffer_read(struct BitBuffer *buffer, int size);
 void BitBuffer_free(BitBuffer *self);
 
-size_t varintEncode(u_int64_t value, uint8_t *vbuf);
+size_t varintEncode(u_int64_t value, u_int8_t *vbuf);
 inline u_int64_t ReadVarint(BitBuffer *b);
 size_t WriteVarintBuffer(varintBuf varint, size_t pos, BitBuffer *buf);
 #endif
