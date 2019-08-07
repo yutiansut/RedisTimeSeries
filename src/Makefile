@@ -62,8 +62,13 @@ run: redistimeseries.so
 
 gdb: redistimeseries.so
 	gdb --args `which redis-server` --loadmodule `pwd`/redistimeseries.so COMPACTION_POLICY "" RETNTION_POLICY 3600 MAX_SAMPLE_PER_CHUNK 1024 --dir /tmp
+
 valgrind: redistimeseries.so
 	valgrind --leak-check=full --show-leak-kinds=all -v redis-server --loadmodule `pwd`/redistimeseries.so COMPACTION_POLICY "" RETNTION_POLICY 3600 MAX_SAMPLE_PER_CHUNK 1024 --dir /tmp
+
+lldb: redistimeseries.so
+	lldb -- `which redis-server` --loadmodule `pwd`/redistimeseries.so COMPACTION_POLICY "" RETNTION_POLICY 3600 MAX_SAMPLE_PER_CHUNK 1024 --dir /tmp
+
 
 unittests_runner: redistimeseries.so tests.o
 	$(CC) *.o -o unittests_runner $(LIBS) -L$(RMUTIL_LIBDIR) -lrmutil -lc -lm
@@ -85,4 +90,4 @@ package: redistimeseries.so
 	ramp pack -m "`pwd`/../ramp.yml" -v -o ${PAKCAGE_NAME} "`pwd`/redistimeseries.so" | tee /tmp/ramp_output
 	./clean_ramp.py `tail -1 /tmp/ramp_output`
 
-.PHONY: package tests unittests clean all
+.PHONY: package tests unittests clean all lldb gdb valgrind
