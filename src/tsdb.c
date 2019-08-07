@@ -243,12 +243,12 @@ int SeriesIteratorGetNext(SeriesIterator *iterator, Sample *currentSample) {
 
         if (ChunkIteratorGetNext(&iterator->chunkIterator, &internalSample) == 0) { // reached the end of the chunk
             ChunkIteratorClose(&iterator->chunkIterator);
+            iterator->chunkIteratorInitialized = FALSE;
             memset(&iterator->chunkIterator, 0, sizeof(iterator->chunkIterator));
             if (!RedisModule_DictNextC(iterator->dictIter, NULL, (void*)&iterator->currentChunk)) {
                 iterator->currentChunk = NULL;
                 break;
             }
-            iterator->chunkIteratorInitialized = FALSE;
             continue;
         }
 
