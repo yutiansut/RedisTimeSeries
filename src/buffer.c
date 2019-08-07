@@ -38,7 +38,7 @@ void BitBuffer_free(BitBuffer *buffer) {
 }
 
 int BitBuffer_hasSpaceFor(struct BitBuffer *buffer, int bits_len) {
-    if ((buffer->size - buffer->byte_index) * CHAR_BIT < bits_len) {
+    if ((buffer->size - buffer->byte_index) * CHAR_BIT + buffer->bit_index < bits_len) {
         return BITBUFFER_ERROR;
     } else {
         return BITBUFFER_OK;
