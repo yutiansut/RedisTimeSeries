@@ -31,12 +31,16 @@ endif
 ifeq ($(CHUNK_TYPE),bitbuffer)
 	CHUNK = bitbuffer_chunk
 endif
-CFLAGS = -I$(RM_INCLUDE_DIR) -Wall -O3 -g -ggdb -fPIC -lc -lm -std=gnu99  -DREDIS_MODULE_TARGET -DREDISMODULE_EXPERIMENTAL_API
+OPTIMIZATION ?= "-O2"
+CFLAGS = -I$(RM_INCLUDE_DIR) -Wall $(OPTIMIZATION)  -g -ggdb -fPIC -lc -lm -std=gnu99  -DREDIS_MODULE_TARGET -DREDISMODULE_EXPERIMENTAL_API
 
 all: rmutil redistimeseries.so
 
 rmutil:
 	$(MAKE) -C $(RMUTIL_LIBDIR)
+
+debug:
+	$(MAKE) OPTIMIZATION="-O0 -fstack-protector-all -rdynamic"
 
 module.o: module.c version.h
 	$(CC) $(CFLAGS) -c -o $@ module.c
@@ -90,4 +94,4 @@ package: redistimeseries.so
 	ramp pack -m "`pwd`/../ramp.yml" -v -o ${PAKCAGE_NAME} "`pwd`/redistimeseries.so" | tee /tmp/ramp_output
 	./clean_ramp.py `tail -1 /tmp/ramp_output`
 
-.PHONY: package tests unittests clean all lldb gdb valgrind
+.PHONY: package tests unittests clean all lldb gdb valgrind run
