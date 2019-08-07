@@ -1,6 +1,7 @@
 #include "buffer.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <memory.h>
 
 
 #define BITBUFFER_TRACE(buffer,msg,args...) BITBUFFER_TRACE_LEVEL(buffer,msg,1,args)
@@ -12,10 +13,15 @@
     }
 
 BitBuffer * BitBuffer_new(size_t size) {
-    return BitBuffer_newWithData(size, malloc(size));
+    char *data = malloc(size);
+    memset(data, 0, size);
+    return BitBuffer_newWithData(size, data);
 }
 
 BitBuffer * BitBuffer_newWithData(size_t size, char *data) {
+    if (data == NULL) {
+        return NULL;
+    }
     BitBuffer *buffer;
     buffer = (BitBuffer *)malloc(sizeof(BitBuffer));
     BitBuffer_init(buffer, size, data);
