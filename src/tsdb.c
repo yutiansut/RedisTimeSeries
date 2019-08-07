@@ -179,8 +179,10 @@ int SeriesAddSample(Series *series, api_timestamp_t timestamp, double value) {
         Chunk *newChunk = NewChunk(series->maxSamplesPerChunk);
         seriesEncodeTimestamp(&rax_key, timestamp);
         RedisModule_DictSetC(series->chunks, &rax_key, sizeof(rax_key), (void*)newChunk);
-        ChunkAddSample(newChunk, sample);
         series->lastChunk = newChunk;
+        if(ChunkAddSample(newChunk, sample) == 0) {
+            return TSDB_ERROR;
+        }
     }
     series->lastTimestamp = timestamp;
     series->lastValue = value;
@@ -240,10 +242,12 @@ int SeriesIteratorGetNext(SeriesIterator *iterator, Sample *currentSample) {
         }
 
         if (ChunkIteratorGetNext(&iterator->chunkIterator, &internalSample) == 0) { // reached the end of the chunk
+            ChunkIteratorClose(&iterator->chunkIterator);
+            memset(&iterator->chunkIterator, 0, sizeof(iterator->chunkIterator));
             if (!RedisModule_DictNextC(iterator->dictIter, NULL, (void*)&iterator->currentChunk)) {
                 iterator->currentChunk = NULL;
+                break;
             }
-//            ChunkIteratorClose(&iterator->chunkIterator);
             iterator->chunkIteratorInitialized = FALSE;
             continue;
         }
