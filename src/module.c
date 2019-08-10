@@ -188,7 +188,7 @@ static int parseRangeArguments(RedisModuleCtx *ctx, Series *series, int start_in
 int TSDB_info(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
     RedisModule_AutoMemory(ctx);
     
-    if (argc != 2) {
+    if (argc < 2 || argc > 3) {
     	return RedisModule_WrongArity(ctx);
     }
 
@@ -202,8 +202,12 @@ int TSDB_info(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
     } else {
         series = RedisModule_ModuleTypeGetValue(key);
     }
-
-    RedisModule_ReplyWithArray(ctx, 7*2);
+    int is_debug = RMUtil_ArgExists("DEBUG", argv, argc, 1);
+    if (is_debug) {
+        RedisModule_ReplyWithArray(ctx, 8*2);
+    } else {
+        RedisModule_ReplyWithArray(ctx, 7*2);
+    }
 
     RedisModule_ReplyWithSimpleString(ctx, "lastTimestamp");
     RedisModule_ReplyWithLongLong(ctx, series->lastTimestamp);
@@ -239,6 +243,29 @@ int TSDB_info(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
         ruleCount++;
     }
     RedisModule_ReplySetArrayLength(ctx, ruleCount);
+
+    if (is_debug) {
+        RedisModuleDictIter *iter = RedisModule_DictIteratorStartC(series->chunks, ">", "", 0);
+        Chunk *chunk = NULL;
+        int chunkCount = 0;
+        RedisModule_ReplyWithSimpleString(ctx, "Chunks");
+        RedisModule_ReplyWithArray(ctx, REDISMODULE_POSTPONED_ARRAY_LEN);
+        while(RedisModule_DictNextC(iter, NULL, (void*)&chunk)) {
+            size_t chunkSize = Chunk_MemorySize(chunk);
+            RedisModule_ReplyWithArray(ctx, 4 * 2);
+            RedisModule_ReplyWithSimpleString(ctx, "startTimestamp");
+            RedisModule_ReplyWithLongLong(ctx, chunk->base_timestamp);
+            RedisModule_ReplyWithSimpleString(ctx, "samples");
+            RedisModule_ReplyWithLongLong(ctx, chunk->num_samples);
+            RedisModule_ReplyWithSimpleString(ctx, "size");
+            RedisModule_ReplyWithLongLong(ctx, chunkSize);
+            RedisModule_ReplyWithSimpleString(ctx, "bytesPerSample");
+            RedisModule_ReplyWithDouble(ctx, (double)chunkSize / chunk->num_samples);
+            chunkCount++;
+        }
+        RedisModule_DictIteratorStop(iter);
+        RedisModule_ReplySetArrayLength(ctx, chunkCount);
+    }
     RedisModule_CloseKey(key);
 
     return REDISMODULE_OK;
