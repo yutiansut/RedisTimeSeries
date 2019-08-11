@@ -18,10 +18,10 @@ typedef struct SampleData {
     timestamp_t timestamp;
     union my64bits data;
     timestamp_t time_delta;
-    int write_size_bits;
     u_int64_t xor;
-    int leading;
-    int trailing;
+    u_int8_t write_size_bits;
+    u_int8_t leading;
+    u_int8_t trailing;
 } SampleData;
 
 typedef struct CompressedChunkData {

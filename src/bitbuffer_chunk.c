@@ -91,7 +91,6 @@ Chunk * NewChunk(size_t sampleCount)
     newChunk->num_samples = 0;
     newChunk->base_timestamp = 0;
     newChunk->max_samples = sampleCount;
-    newChunk->nextChunk = NULL;
     newChunk->samples = malloc(sizeof(CompressedChunkData));
     ((CompressedChunkData*)newChunk->samples)->buffer = BitBuffer_new(sampleCount);
     CompressedChunkDataInit((CompressedChunkData*)newChunk->samples);
@@ -128,7 +127,7 @@ timestamp_t ChunkGetFirstTimestamp(Chunk *chunk) {
     return chunk->base_timestamp;
 }
 
-void compressData(SampleData *last, Sample sample, int *data_size, u_int64_t* xordata, int *oLeading, int *oTrailing, u_int64_t *oXor) {
+void compressData(SampleData *last, Sample sample, int *data_size, u_int64_t* xordata, u_int8_t *oLeading, u_int8_t *oTrailing, u_int64_t *oXor) {
     *data_size = 0;
     volatile union my64bits current_data;
     current_data.dbl = sample.data;
@@ -163,7 +162,7 @@ void compressData(SampleData *last, Sample sample, int *data_size, u_int64_t* xo
         u_int8_t bits_len =  (64 - last->trailing) - last->leading;
         u_int32_t last_leading = htobe64(xor << last->leading);
         //printf("problem? compressedChunkData->last_trailing=%d compressedChunkData->last_leading=%d\n", compressedChunkData->last_trailing, compressedChunkData->last_leading);
-        BitBuffer_write_bits_be(&tempBuff, &last_leading, bits_len);
+        BitBuffer_write_bits_be(&tempBuff, (u_int8_t *) &last_leading, bits_len);
 //            printf("write: xor: 0x%llx trailing: %d leading: %d sigbits: %d\n", xor >> trailing, trailing, leading, 64 - leading - trailing);
     }
     else
@@ -180,7 +179,7 @@ void compressData(SampleData *last, Sample sample, int *data_size, u_int64_t* xo
         u_int8_t sigbits = 64 - leading - trailing;
         BitBuffer_write(&tempBuff, sigbits << 2, 6);
         u_int32_t current_leading = htobe64(xor << leading);
-        BitBuffer_write_bits_be(&tempBuff, &current_leading, sigbits);
+        BitBuffer_write_bits_be(&tempBuff, (u_int8_t *) &current_leading, sigbits);
 //        printf("xor: %lX, last_data:%x current_data: %x\n", xor >> trailing, compressedChunkData->last_data, sample.data);
 //            printf("write: xor: 0x%llx trailing: %d leading: %d sigbits: %d\n", xor >> trailing, trailing, leading, sigbits);
     }
@@ -266,8 +265,8 @@ int ChunkAddSample(Chunk *chunk, Sample sample) {
 
     int data_size = 0;
     u_int64_t data[2] = {0,0};
-    int trailing = compressedChunkData->last.trailing;
-    int leading = compressedChunkData->last.leading;
+    u_int8_t trailing = compressedChunkData->last.trailing;
+    u_int8_t leading = compressedChunkData->last.leading;
     u_int64_t xor = compressedChunkData->last.xor;
 //    if (compressedChunkData->last.data.dbl == sample.data) {
 //        // no changes, write 1 bit of zero
