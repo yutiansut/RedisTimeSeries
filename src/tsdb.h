@@ -25,14 +25,14 @@ typedef struct Series {
     RedisModuleDict* chunks;
     Chunk* lastChunk;
     int32_t retentionTime;
-    short maxSamplesPerChunk;
     CompactionRule *rules;
     timestamp_t lastTimestamp;
     double lastValue;
     Label *labels;
     RedisModuleString *keyName;
-    size_t labelsCount;
     RedisModuleString *srcKey;
+    short labelsCount;
+    short maxSamplesPerChunk;
 } Series;
 
 typedef struct SeriesIterator {
