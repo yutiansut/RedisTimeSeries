@@ -12,7 +12,6 @@ Chunk * NewChunk(size_t sampleCount)
     Chunk *newChunk = (Chunk *)malloc(sizeof(Chunk));
     newChunk->num_samples = 0;
     newChunk->max_samples = sampleCount;
-    newChunk->nextChunk = NULL;
     newChunk->samples = malloc(sizeof(Sample)*sampleCount);
 
     return newChunk;
