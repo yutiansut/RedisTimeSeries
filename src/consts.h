@@ -20,7 +20,7 @@
 
 /* TS.CREATE Defaults */
 #define RETENTION_TIME_DEFAULT          0LL
-#define SAMPLES_PER_CHUNK_DEFAULT_SECS  360LL
+#define SAMPLES_PER_CHUNK_DEFAULT 360LL
 
 /* TS.Range Aggregation types */
 typedef enum {

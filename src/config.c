@@ -47,7 +47,7 @@ int ReadConfig(RedisModuleString **argv, int argc) {
             return TSDB_ERROR;
         }
     } else {
-        TSGlobalConfig.maxSamplesPerChunk = SAMPLES_PER_CHUNK_DEFAULT_SECS;
+        TSGlobalConfig.maxSamplesPerChunk = SAMPLES_PER_CHUNK_DEFAULT;
     }
     printf("loaded default MAX_SAMPLE_PER_CHUNK policy: %lld \n", TSGlobalConfig.maxSamplesPerChunk);
     return TSDB_OK;
