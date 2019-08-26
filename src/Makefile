@@ -109,7 +109,11 @@ TEST_REPORT_DIR ?= $(PWD)
 
 tests: $(TARGET)
 	$(SHOW)cd ../tests; \
-	REDISTIMESERIES=$(TARGET) python -m pytest --junitxml=$(TEST_REPORT_DIR)/tests_report.xml $(TEST_ARGS) -svv .
+	REDISTIMESERIES=$(TARGET) python -m pytest --junitxml=$(TEST_REPORT_DIR)/tests_report.xml $(TEST_ARGS) -svv ../tests/test_module.py
+
+benchmark: $(TARGET)
+	$(SHOW)cd ../tests; \
+	REDISTIMESERIES=$(TARGET) python -m pytest --junitxml=$(TEST_REPORT_DIR)/tests_report.xml $(TEST_ARGS) -svv ../tests/test_benchmark.py
 
 REDIS_ARGS=\
 	COMPACTION_POLICY "" \
