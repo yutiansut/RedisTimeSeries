@@ -20,31 +20,31 @@ def create_labels(list_names, lists):
   rand = int(random.random() * len(lists[1]))
   labels.extend([list_names[1], lists[1][rand]])  
   rand = int(random.random() * len(lists[2]))
-  if rand % 9 > 4: 
-    labels.extend([list_names[2], lists[2][rand]])
+  #if rand % 9 < 4: 
+  labels.extend([list_names[2], lists[2][rand]])
   rand = int(random.random() * len(lists[3]))
   labels.extend([list_names[3], lists[3][rand]])
   rand = int(random.random() * len(lists[4]))
-  if rand % 3 == 1: 
-    labels.extend([list_names[4], lists[4][rand]])
+  labels.extend([list_names[4], lists[4][rand]])
   rand = int(random.random() * len(lists[5]))
-  if rand % 13 < 4: 
-    labels.extend([list_names[5], lists[5][rand]])
+  #if rand % 13 < 4: 
+  labels.extend([list_names[5], lists[5][rand]])
   rand = int(random.random() * len(lists[6]))
   labels.extend([list_names[6], lists[6][rand]])
   #print len(labels) / 2, labels
   return labels
 
 class RedisTimeseriesTests(ModuleTestCase(os.path.dirname(os.path.abspath(__file__)) + '/../bin/redistimeseries.so')):
-  def test_benchmark(self):
+  def a_test_benchmark(self): #remove 'a_' to run
     start_ts = 10L
-    series_count =  6
+    series_count =  12
   
     samples_count = 1500
     name = 0
     start_time = time.time()
 
     with self.redis() as r:
+      r.execute_command('FLUSHALL')
       for i in range(series_count):
         for j in range(series_count):
           for k in range(series_count):
@@ -112,11 +112,12 @@ class RedisTimeseriesTests(ModuleTestCase(os.path.dirname(os.path.abspath(__file
     names_list =['5_10', '5_20', '5_100', '10_5', '10_20', '10_100', '20_20']
     lists_list =[l5_10, l5_20, l5_100, l10_5, l10_20, l10_100, l20_20]
     start_ts = 10L
-    series_count =  40000
+    series_count =  1000000
     name = 0
     start_time = time.time()
 
     with self.redis() as r:
+      r.execute_command('FLUSHALL')
       for i in range(series_count):
         labels_list = create_labels(names_list, lists_list)
         chars = digits + ascii_lowercase
@@ -126,11 +127,43 @@ class RedisTimeseriesTests(ModuleTestCase(os.path.dirname(os.path.abspath(__file
 
       print "\n\nCreation of "+str(series_count)+ " time series ended after"
       print("--- %s seconds ---" % (time.time() - start_time))
-      start_time = time.time()
       label = []
+      ###########
+      start_time = time.time()
+      result = r.execute_command('TS.QUERYINDEX', names_list[0]+'='+lists_list[0][0])
+      print len(result)
+      print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+      ###########
+      start_time = time.time()
+      result = r.execute_command('TS.QUERYINDEX', names_list[1]+'='+lists_list[1][0])
+      print len(result)
+      print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+      ###########
+      start_time = time.time()
+      result = r.execute_command('TS.QUERYINDEX', names_list[2]+'='+lists_list[2][0])
+      print len(result)
+      print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+      ###########
+      start_time = time.time()
       result = r.execute_command('TS.QUERYINDEX', names_list[3]+'='+lists_list[3][2])
       print len(result)
       print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+      ###########
+      start_time = time.time()
+      result = r.execute_command('TS.QUERYINDEX', names_list[4]+'='+lists_list[4][2])
+      print len(result)
+      print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+      ###########
+      start_time = time.time()
+      result = r.execute_command('TS.QUERYINDEX', names_list[5]+'='+lists_list[5][2])
+      print len(result)
+      print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+      ###########
+      start_time = time.time()
+      result = r.execute_command('TS.QUERYINDEX', names_list[6]+'='+lists_list[6][2])
+      print len(result)
+      print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+      ###########
       start_time = time.time()
       result = r.execute_command('TS.QUERYINDEX', names_list[2]+'!=('+lists_list[2][2]+','+lists_list[2][7]+','+lists_list[2][20]+')',
                                                   names_list[1]+'=('+lists_list[1][2]+','+lists_list[1][7]+','+lists_list[1][18]+')',
@@ -138,6 +171,7 @@ class RedisTimeseriesTests(ModuleTestCase(os.path.dirname(os.path.abspath(__file
                                                   names_list[6]+'!=('+lists_list[6][2]+')')
       print len(result)
       print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+      ###########
       start_time = time.time()
       result = r.execute_command('TS.QUERYINDEX', names_list[0]+'=('+lists_list[0][2]+','+lists_list[0][4]+','+lists_list[0][0]+')',
                                                   names_list[1]+'=('+lists_list[1][2]+','+lists_list[1][7]+','+lists_list[1][18]+')',
@@ -145,11 +179,19 @@ class RedisTimeseriesTests(ModuleTestCase(os.path.dirname(os.path.abspath(__file
                                                   names_list[6]+'!=('+lists_list[6][2]+')')    
       print len(result)
       print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
-      '''
+      ###########
       start_time = time.time()
-      result = r.execute_command('TS.QUERYINDEX', 'c=5')
+      result = r.execute_command('TS.QUERYINDEX', names_list[5]+'=('+lists_list[5][2]+','+lists_list[5][7]+','+lists_list[1][18]+')')
+      print len(result)
+      print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))      
+      ###########
+      start_time = time.time()
+      result = r.execute_command('TS.QUERYINDEX', names_list[5]+'!=('+lists_list[5][2]+','+lists_list[5][7]+','+lists_list[1][18]+')',
+                                                  names_list[0]+'=('+lists_list[0][2]+','+lists_list[0][4]+','+lists_list[0][0]+')')
       print len(result)
       print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+      
+      '''
       start_time = time.time()
       result = r.execute_command('TS.QUERYINDEX', 'b=(1,4)', 'c=(2,3)', 'd!=(4,5)', 'e=(1,2,3)')
       print len(result)
