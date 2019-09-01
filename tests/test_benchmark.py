@@ -20,82 +20,105 @@ def create_labels(list_names, lists):
   rand = int(random.random() * len(lists[1]))
   labels.extend([list_names[1], lists[1][rand]])  
   rand = int(random.random() * len(lists[2]))
-  #if rand % 9 < 4: 
   labels.extend([list_names[2], lists[2][rand]])
   rand = int(random.random() * len(lists[3]))
   labels.extend([list_names[3], lists[3][rand]])
   rand = int(random.random() * len(lists[4]))
   labels.extend([list_names[4], lists[4][rand]])
   rand = int(random.random() * len(lists[5]))
-  #if rand % 13 < 4: 
   labels.extend([list_names[5], lists[5][rand]])
   rand = int(random.random() * len(lists[6]))
   labels.extend([list_names[6], lists[6][rand]])
-  #print len(labels) / 2, labels
   return labels
 
+def funcname(self, samples_count):
+  with self.redis() as r:
+    print "\nTest creation and query of "+str(samples_count)+" series"
+    r.execute_command('FLUSHALL')
+    with r.pipeline(transaction=False) as p:
+      start_time = time.time()
+      for name in range(samples_count):
+        p.execute_command('TS.CREATE', name, 'LABELS', 'number', name)
+      p.execute()
+      print("--- %s seconds to create---" % (time.time() - start_time))
+      start_time = time.time()
+      for name in range(samples_count):
+        result = p.execute_command('TS.QUERYINDEX', 'number=' + str(name))
+      response = p.execute()
+      print("--- %s seconds to query index---" % (time.time() - start_time))
+      for name in range(samples_count):
+        assert response[name] == [str(name)]
+
 class RedisTimeseriesTests(ModuleTestCase(os.path.dirname(os.path.abspath(__file__)) + '/../bin/redistimeseries.so')):
-  def a_test_benchmark(self): #remove 'a_' to run
+  def test_multiple_simple(self):
+    print
+    funcname(self, 100)
+    funcname(self, 1000)
+    funcname(self, 10000)
+    funcname(self, 100000)
+    funcname(self, 1000000)
+
+
+  def test_benchmark(self): #remove 'a_' to run
     start_ts = 10L
-    series_count =  12
-  
-    samples_count = 1500
+    series_count = 10
     name = 0
     start_time = time.time()
 
     with self.redis() as r:
       r.execute_command('FLUSHALL')
-      for i in range(series_count):
-        for j in range(series_count):
-          for k in range(series_count):
-            for l in range(series_count):
-              for m in range(series_count):
-#                for n in range(series_count):
-                  r.execute_command('TS.CREATE', name, 'LABELS', 'a', i, 'b', j, 'c', k, 'd', l, 'e', m)#, 'f', n)
-                  name += 1      
+      with r.pipeline(transaction=False) as p:
+        for i in range(series_count):
+          for j in range(series_count):
+            for k in range(series_count):
+              for l in range(series_count):
+                for m in range(series_count):
+  #                for n in range(series_count):
+                    p.execute_command('TS.CREATE', name, 'LABELS', 'a', i, 'b', j, 'c', k, 'd', l, 'e', m)#, 'f', n)
+                    name += 1   
+        p.execute()
       print
       print("--- %s seconds ---" % (time.time() - start_time))
       start_time = time.time()
-
-      result = r.execute_command('TS.QUERYINDEX', 'a=0,1,2,3,4,5')
-      print len(result)
+      result = r.execute_command('TS.QUERYINDEX', 'a=(0,1,2,3,4,5)')
       print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+      print len(result)
       start_time = time.time()
-      result = r.execute_command('TS.QUERYINDEX', 'a=0,1,2,3,4,5', 'b!=(1,2,3,4)')
-      print len(result)
+      result = r.execute_command('TS.QUERYINDEX', 'a=(0,1,2,3,4,5)', 'b!=(1,2,3,4)')
       print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+      print len(result)
       start_time = time.time()
       result = r.execute_command('TS.QUERYINDEX', 'a=8')
-      print len(result)
       print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+      print len(result)
       start_time = time.time()
       result = r.execute_command('TS.QUERYINDEX', 'c=5')
-      print len(result)
       print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+      print len(result)
       start_time = time.time()
       result = r.execute_command('TS.QUERYINDEX', 'b=(1,4)', 'c=(2,3)', 'd!=(4,5)', 'e=(1,2,3)')
-      print len(result)
       print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+      print len(result)
       start_time = time.time()
       result = r.execute_command('TS.QUERYINDEX', 'b=(1,4)', 'c=(2,3)', 'd!=(4,5)', 'e=(1,2,3)')
-      print len(result)
       print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+      print len(result)
       start_time = time.time()
-      result = r.execute_command('TS.QUERYINDEX', 'a=1', 'b=3', 'f=5', 'd=2')
-      print len(result)
+      result = r.execute_command('TS.QUERYINDEX', 'a=1', 'b=3', 'c=5', 'd=2')
       print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+      print len(result)
       start_time = time.time()
       result = r.execute_command('TS.QUERYINDEX', 'b=3', 'c!=4', 'e!=5')
-      print len(result)
       print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+      print len(result)
       start_time = time.time()
       result = r.execute_command('TS.QUERYINDEX', 'b=3', 'c!=(1,2,6)', 'e!=5')
-      print len(result)
       print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+      print len(result)
       start_time = time.time()
       result = r.execute_command('TS.QUERYINDEX', 'b=3', 'c=(1,2,5)', 'e!=5')
-      print len(result)
       print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+      print len(result)
   
   def test_benchmark_random(self):
     # Create random labels
@@ -118,103 +141,106 @@ class RedisTimeseriesTests(ModuleTestCase(os.path.dirname(os.path.abspath(__file
 
     with self.redis() as r:
       r.execute_command('FLUSHALL')
-      for i in range(series_count):
-        labels_list = create_labels(names_list, lists_list)
-        chars = digits + ascii_lowercase
-        keyname = "".join([choice(chars) for j in range(15)])
-        #print keyname
-        r.execute_command('TS.CREATE', keyname, 'LABELS', *labels_list)
+      with r.pipeline() as p:
 
-      print "\n\nCreation of "+str(series_count)+ " time series ended after"
-      print("--- %s seconds ---" % (time.time() - start_time))
-      label = []
-      ###########
-      start_time = time.time()
-      result = r.execute_command('TS.QUERYINDEX', names_list[0]+'='+lists_list[0][0])
-      print len(result)
-      print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
-      ###########
-      start_time = time.time()
-      result = r.execute_command('TS.QUERYINDEX', names_list[1]+'='+lists_list[1][0])
-      print len(result)
-      print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
-      ###########
-      start_time = time.time()
-      result = r.execute_command('TS.QUERYINDEX', names_list[2]+'='+lists_list[2][0])
-      print len(result)
-      print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
-      ###########
-      start_time = time.time()
-      result = r.execute_command('TS.QUERYINDEX', names_list[3]+'='+lists_list[3][2])
-      print len(result)
-      print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
-      ###########
-      start_time = time.time()
-      result = r.execute_command('TS.QUERYINDEX', names_list[4]+'='+lists_list[4][2])
-      print len(result)
-      print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
-      ###########
-      start_time = time.time()
-      result = r.execute_command('TS.QUERYINDEX', names_list[5]+'='+lists_list[5][2])
-      print len(result)
-      print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
-      ###########
-      start_time = time.time()
-      result = r.execute_command('TS.QUERYINDEX', names_list[6]+'='+lists_list[6][2])
-      print len(result)
-      print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
-      ###########
-      start_time = time.time()
-      result = r.execute_command('TS.QUERYINDEX', names_list[2]+'!=('+lists_list[2][2]+','+lists_list[2][7]+','+lists_list[2][20]+')',
-                                                  names_list[1]+'=('+lists_list[1][2]+','+lists_list[1][7]+','+lists_list[1][18]+')',
-                                                  names_list[4]+'!=('+lists_list[4][2]+','+lists_list[4][7]+','+lists_list[4][18]+')',
-                                                  names_list[6]+'!=('+lists_list[6][2]+')')
-      print len(result)
-      print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
-      ###########
-      start_time = time.time()
-      result = r.execute_command('TS.QUERYINDEX', names_list[0]+'=('+lists_list[0][2]+','+lists_list[0][4]+','+lists_list[0][0]+')',
-                                                  names_list[1]+'=('+lists_list[1][2]+','+lists_list[1][7]+','+lists_list[1][18]+')',
-                                              #   names_list[4]+'!=('+lists_list[4][2]+','+lists_list[4][7]+','+lists_list[4][18]+')',
-                                                  names_list[6]+'!=('+lists_list[6][2]+')')    
-      print len(result)
-      print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
-      ###########
-      start_time = time.time()
-      result = r.execute_command('TS.QUERYINDEX', names_list[5]+'=('+lists_list[5][2]+','+lists_list[5][7]+','+lists_list[1][18]+')')
-      print len(result)
-      print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))      
-      ###########
-      start_time = time.time()
-      result = r.execute_command('TS.QUERYINDEX', names_list[5]+'!=('+lists_list[5][2]+','+lists_list[5][7]+','+lists_list[1][18]+')',
-                                                  names_list[0]+'=('+lists_list[0][2]+','+lists_list[0][4]+','+lists_list[0][0]+')')
-      print len(result)
-      print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
-      
-      '''
-      start_time = time.time()
-      result = r.execute_command('TS.QUERYINDEX', 'b=(1,4)', 'c=(2,3)', 'd!=(4,5)', 'e=(1,2,3)')
-      print len(result)
-      print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
-      start_time = time.time()
-      result = r.execute_command('TS.QUERYINDEX', 'b=(1,4)', 'c=(2,3)', 'd!=(4,5)', 'e=(1,2,3)')
-      print len(result)
-      print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
-      start_time = time.time()
-      result = r.execute_command('TS.QUERYINDEX', 'a=1', 'b=3', 'f=5', 'd=2')
-      print len(result)
-      print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
-      start_time = time.time()
-      result = r.execute_command('TS.QUERYINDEX', 'b=3', 'c!=4', 'e!=5')
-      print len(result)
-      print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
-      start_time = time.time()
-      result = r.execute_command('TS.QUERYINDEX', 'b=3', 'c!=(1,2,6)', 'e!=5')
-      print len(result)
-      print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
-      start_time = time.time()
-      result = r.execute_command('TS.QUERYINDEX', 'b=3', 'c=(1,2,5)', 'e!=5')
-      print len(result)
-      print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
-      '''
+        for i in range(series_count):
+          labels_list = create_labels(names_list, lists_list)
+          chars = digits + ascii_lowercase
+          keyname = "".join([choice(chars) for j in range(15)])
+          #print keyname
+          p.execute_command('TS.CREATE', keyname, 'LABELS', *labels_list)
+        p.execute()
+
+        print "\n\nCreation of "+str(series_count)+ " time series ended after"
+        print("--- %s seconds ---" % (time.time() - start_time))
+        label = []
+        ###########
+        start_time = time.time()
+        result = r.execute_command('TS.QUERYINDEX', names_list[0]+'='+lists_list[0][0])
+        print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+        print len(result)
+        ###########
+        start_time = time.time()
+        result = r.execute_command('TS.QUERYINDEX', names_list[1]+'='+lists_list[1][0])
+        print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+        print len(result)
+        ###########
+        start_time = time.time()
+        result = r.execute_command('TS.QUERYINDEX', names_list[2]+'='+lists_list[2][0])
+        print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+        print len(result)
+        ###########
+        start_time = time.time()
+        result = r.execute_command('TS.QUERYINDEX', names_list[3]+'='+lists_list[3][2])
+        print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+        print len(result)
+        ###########
+        start_time = time.time()
+        result = r.execute_command('TS.QUERYINDEX', names_list[4]+'='+lists_list[4][2])
+        print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+        print len(result)
+        ###########
+        start_time = time.time()
+        result = r.execute_command('TS.QUERYINDEX', names_list[5]+'='+lists_list[5][2])
+        print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+        print len(result)
+        ###########
+        start_time = time.time()
+        result = r.execute_command('TS.QUERYINDEX', names_list[6]+'='+lists_list[6][2])
+        print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+        print len(result)
+        ###########
+        start_time = time.time()
+        result = r.execute_command('TS.QUERYINDEX', names_list[2]+'!=('+lists_list[2][2]+','+lists_list[2][7]+','+lists_list[2][20]+')',
+                                                    names_list[1]+'=('+lists_list[1][2]+','+lists_list[1][7]+','+lists_list[1][18]+')',
+                                                    names_list[4]+'!=('+lists_list[4][2]+','+lists_list[4][7]+','+lists_list[4][18]+')',
+                                                    names_list[6]+'!=('+lists_list[6][2]+')')
+        print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+        print len(result)
+        ###########
+        start_time = time.time()
+        result = r.execute_command('TS.QUERYINDEX', names_list[0]+'=('+lists_list[0][2]+','+lists_list[0][4]+','+lists_list[0][0]+')',
+                                                    names_list[1]+'=('+lists_list[1][2]+','+lists_list[1][7]+','+lists_list[1][18]+')',
+                                                #   names_list[4]+'!=('+lists_list[4][2]+','+lists_list[4][7]+','+lists_list[4][18]+')',
+                                                    names_list[6]+'!=('+lists_list[6][2]+')')    
+        print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+        print len(result)
+        ###########
+        start_time = time.time()
+        result = r.execute_command('TS.QUERYINDEX', names_list[5]+'=('+lists_list[5][2]+','+lists_list[5][7]+','+lists_list[1][18]+')')
+        print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))      
+        print len(result)
+        ###########
+        start_time = time.time()
+        result = r.execute_command('TS.QUERYINDEX', names_list[5]+'!=('+lists_list[5][2]+','+lists_list[5][7]+','+lists_list[1][18]+')',
+                                                    names_list[0]+'=('+lists_list[0][2]+','+lists_list[0][4]+','+lists_list[0][0]+')')
+        print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+        print len(result)
+        
+        '''
+        start_time = time.time()
+        result = r.execute_command('TS.QUERYINDEX', 'b=(1,4)', 'c=(2,3)', 'd!=(4,5)', 'e=(1,2,3)')
+        print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+        print len(result)
+        start_time = time.time()
+        result = r.execute_command('TS.QUERYINDEX', 'b=(1,4)', 'c=(2,3)', 'd!=(4,5)', 'e=(1,2,3)')
+        print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+        print len(result)
+        start_time = time.time()
+        result = r.execute_command('TS.QUERYINDEX', 'a=1', 'b=3', 'f=5', 'd=2')
+        print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+        print len(result)
+        start_time = time.time()
+        result = r.execute_command('TS.QUERYINDEX', 'b=3', 'c!=4', 'e!=5')
+        print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+        print len(result)
+        start_time = time.time()
+        result = r.execute_command('TS.QUERYINDEX', 'b=3', 'c!=(1,2,6)', 'e!=5')
+        print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+        print len(result)
+        start_time = time.time()
+        result = r.execute_command('TS.QUERYINDEX', 'b=3', 'c=(1,2,5)', 'e!=5')
+        print("--- %s milliseconds ---" % ((time.time() - start_time) * 1000))
+        print len(result)
+        '''
 
