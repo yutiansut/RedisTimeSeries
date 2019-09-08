@@ -541,8 +541,8 @@ void handleCompaction(RedisModuleCtx *ctx, CompactionRule *rule, api_timestamp_t
 static inline int add(RedisModuleCtx *ctx, RedisModuleString *keyName, RedisModuleString *timestampStr, RedisModuleString *valueStr, RedisModuleString **argv, int argc){
 	  RedisModuleKey *key = RedisModule_OpenKey(ctx, keyName, REDISMODULE_READ|REDISMODULE_WRITE);
 
-	    double value;
-	    api_timestamp_t timestamp;
+	    double value = 0;
+	    api_timestamp_t timestamp = 0;
 	    if ((RedisModule_StringToDouble(valueStr, &value) != REDISMODULE_OK))
 	        return RedisModule_ReplyWithError(ctx, "TSDB: invalid value");
 
